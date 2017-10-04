@@ -22,3 +22,13 @@ docs/
 
 # Code coverage
 *.lst
+*.d
+Main/Debug/Main.eep
+*.lss
+Main/Debug/Main.srec
+*.mk
+Main/Debug/Makefile
+*.map
+Main/Debug/Main.hex
+*.elf
+*.ini
