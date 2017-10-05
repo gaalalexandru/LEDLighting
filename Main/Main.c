@@ -6,10 +6,9 @@
  */ 
 
 #include <avr/io.h>
-#include <util/delay.h>
+#include <avr/interrupt.h>
 #include "usart_handler.h"
 
-#define F_CPU 1000000UL
 
 #define Pin0 0x01
 #define Pin1 0x02
@@ -44,17 +43,14 @@ int main(void)
     while(1)
     {
 		receiveData = USART_InChar();
-		if(receiveData == 0x31) 
 		{
 			USART_NewLine();
 			USART_OutString("Starting LED strip: ");
 			USART_OutChar(receiveData);
 			PORTB = 0x00;
 			PORTC = 0x00;
-			PORTD = PIN6;
 
 		}
-		else if (receiveData == 0x32) 
 		{
 			USART_NewLine();
 			USART_OutString("Starting LED strip: ");
@@ -64,7 +60,6 @@ int main(void)
 			PORTD = Pin5;
 
 		}
-		else if (receiveData == 0x33) 
 		{
 			USART_NewLine();
 			USART_OutString("Starting LED strip: ");
@@ -74,16 +69,13 @@ int main(void)
 			PORTD = 0x00;
 
 		}
-		else if(receiveData == 0x34) 
 		{
 			USART_NewLine();
 			USART_OutString("Starting LED strip: ");
 			USART_OutChar(receiveData);
 			PORTB = 0x00;
 			PORTC = 0x00;
-			PORTD = PIN7;
 		}
-		else if (receiveData == 0x35) 
 		{
 			USART_NewLine();
 			USART_OutString("Starting LED strip: ");
@@ -93,7 +85,6 @@ int main(void)
 			PORTD = 0x00;
 
 		}
-		else if (receiveData == 0x36) 
 		{
 			USART_NewLine();
 			USART_OutString("Starting LED strip: ");
@@ -110,27 +101,4 @@ int main(void)
 			PORTC=0x00;
 			PORTD=0x00;
 		}
-		//USART_Transmit(0x31);  //1 character
-		
-        //TODO:: Please write your application code 
-		/*
-		PORTB=0x00;
-		PORTC=0x00;
-		PORTD=0x00;
-		_delay_ms(1500);
-		PORTB=0xFF;
-		PORTC=0xFF;
-		PORTD=0xFF;
-		_delay_ms(100);
-		PORTB=0x00;
-		PORTC=0x00;
-		PORTD=0x00;
-		_delay_ms(1500);
-		PORTB=0xFF;
-		PORTC=0xFF;
-		PORTD=0xFF;
-		_delay_ms(100);
-		*/
-		
     }
-} 

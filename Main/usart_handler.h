@@ -1,8 +1,8 @@
 /*
- * IncFile1.h
+ * uart_handler.h
  *
  * Created: 10/4/2017 10:32:57 PM
- *  Author: Ninja
+ *  Author: Gaal Alexandru
  */ 
 
 /* This example accompanies the book
