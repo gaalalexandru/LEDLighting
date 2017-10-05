@@ -8,7 +8,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include "usart_handler.h"
-
+#include "timer_handler.h"
 
 #define Pin0 0x01
 #define Pin1 0x02
@@ -16,17 +16,12 @@
 #define Pin3 0x08
 #define Pin4 0x10
 #define Pin5 0x20
-#define PIN6 0x40
-#define PIN7 0x80
+#define Pin6 0x40
+#define Pin7 0x80
 
 #define FOSC 1000000// Clock Speed
 #define BAUD 9600
 #define MYUBRR FOSC/16/BAUD-1
-
-/*void USART_Init( unsigned int ubrr);
-void USART_Transmit( unsigned char data );
-unsigned char USART_Receive( void );*/
-//extern void USART_OutChar( unsigned char data );
 
 int main(void)
 {
@@ -38,19 +33,14 @@ int main(void)
 	DDRC=0xFF;
 	DDRD=0xFF;
 	USART_Init(MYUBRR);
+	TIMER0_Init();
+	sei();  // enable global interrupts
 	USART_NewLine();
 	USART_OutString("Init Done");
     while(1)
     {
 		receiveData = USART_InChar();
-		{
-			USART_NewLine();
-			USART_OutString("Starting LED strip: ");
-			USART_OutChar(receiveData);
-			PORTB = 0x00;
-			PORTC = 0x00;
-
-		}
+		if(receiveData == 0x32) 
 		{
 			USART_NewLine();
 			USART_OutString("Starting LED strip: ");
@@ -60,6 +50,17 @@ int main(void)
 			PORTD = Pin5;
 
 		}
+		else if (receiveData == 0x31) 
+		{
+			USART_NewLine();
+			USART_OutString("Starting LED strip: ");
+			USART_OutChar(receiveData);
+			PORTB = 0x00;
+			PORTC = 0x00;
+			PORTD = Pin5;
+
+		}
+		else if (receiveData == 0x34) 
 		{
 			USART_NewLine();
 			USART_OutString("Starting LED strip: ");
@@ -69,13 +70,16 @@ int main(void)
 			PORTD = 0x00;
 
 		}
+		else if(receiveData == 0x33) 
 		{
 			USART_NewLine();
 			USART_OutString("Starting LED strip: ");
 			USART_OutChar(receiveData);
 			PORTB = 0x00;
 			PORTC = 0x00;
+			PORTD = Pin7;
 		}
+		else if (receiveData == 0x36) 
 		{
 			USART_NewLine();
 			USART_OutString("Starting LED strip: ");
@@ -85,6 +89,7 @@ int main(void)
 			PORTD = 0x00;
 
 		}
+		else if (receiveData == 0x35) 
 		{
 			USART_NewLine();
 			USART_OutString("Starting LED strip: ");
@@ -102,3 +107,4 @@ int main(void)
 			PORTD=0x00;
 		}
     }
+}
