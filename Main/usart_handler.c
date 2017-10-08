@@ -42,8 +42,8 @@ void USART_Init( unsigned int ubrr)
 // Input: none
 // Output: none
 void USART_NewLine(void){
-  USART_OutChar(CR);
-  USART_OutChar(LF);
+  //USART_OutChar(CR);
+  //USART_OutChar(LF);
 }
 /* **************************************** Output functions **************************************** */
 //------------USART_OutChar------------
@@ -53,10 +53,10 @@ void USART_NewLine(void){
 void USART_OutChar( unsigned char data )
 {
 	/* Wait for empty transmit buffer */
-	while ( !( UCSRA & (1<<UDRE)) )
-	;
+	//while ( !( UCSRA & (1<<UDRE)) )
+	//;
 	/* Put data into buffer, sends the data */
-	UDR = data;
+	//UDR = data;
 }
 
 //------------USART_OutString------------

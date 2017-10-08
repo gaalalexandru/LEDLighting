@@ -10,24 +10,62 @@
 #include "timer_handler.h"
 #include "usart_handler.h"
 
+#define Pin1 0x02
+#define Pin2 0x04
+#define Pin3 0x08
+#define Pin4 0x10
 #define Pin5 0x20
 #define Pin6 0x40
 
-/* Timer0 Initialization function*/
+/* Timer0 - 8bit Initialization function*/
 void TIMER0_Init(void)
 {
-	//Init the timer
-	//TCCR0 |= (1 << CS00);  //clk (No prescaling)
 	TCCR0 |= (1 << CS02)|(1 << CS00);  //clk/1024 (From prescaler)
 	TCNT0 = 0;
 	TIMSK  |= (1 << TOIE0);  //Enable Timer0 overflow interrupt TOIE0
 }
 
-/* Timer0 Overflow Interrupt function*/
+/* Timer1 - 16bit Initialization function*/
+void TIMER1_Init(void)
+{
+	TCCR1A = 0;
+	TCCR1B |= (1 << WGM12)|(1 << CS00);  //clk/254 (From prescaler)
+	TCNT1 = 0;
+	OCR1A = 500;
+	TIMSK  |= (1 << OCIE1A);  //Enable Timer1 output compare trigger OCIE1A
+}
+/*
+unsigned int TIM16_ReadTCNT1( void )
+{
+	unsigned char sreg;
+	unsigned int i;
+	sreg = SREG;  // Save Global Interrupt Flag 
+	_CLI();//Disable interrupts
+	i = TCNT1;	// Read TCNT1 into i
+	SREG = sreg;  // Restore Global Interrupt Flag
+	return i;
+}
+*/
+
+/* Timer1 Compare Match A Interrupt function*/
+ISR (TIMER1_COMPA_vect) // timer0 overflow interrupt
+{
+	static unsigned char ledState = 0;
+	if(ledState)
+	{
+		PORTD = Pin5;
+	}
+	else
+	{
+		PORTD = Pin6;
+	}
+	ledState ^= 1;
+}
+
+/* Timer0 Overflow Interrupt function*//*
 ISR (TIMER0_OVF_vect) // timer0 overflow interrupt
 {
 	static unsigned char ledState = 0;
-	USART_OutChar((ledState+0x30));
 	if(ledState)
 	{
 		PORTB = 0x00;
@@ -41,4 +79,7 @@ ISR (TIMER0_OVF_vect) // timer0 overflow interrupt
 		PORTD = 0x00;		
 	}
 	ledState ^= 1;
-}
+
+}*/
+
+//OSCCAL

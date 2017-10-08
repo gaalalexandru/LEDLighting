@@ -23,6 +23,7 @@
 #define BAUD 9600
 #define MYUBRR FOSC/16/BAUD-1
 
+
 int main(void)
 {
 	unsigned char receiveData = 0;
@@ -32,79 +33,66 @@ int main(void)
 	DDRB=0xFF;
 	DDRC=0xFF;
 	DDRD=0xFF;
-	USART_Init(MYUBRR);
-	TIMER0_Init();
+	//USART_Init(MYUBRR);
+	TIMER1_Init();
 	sei();  // enable global interrupts
 	USART_NewLine();
 	USART_OutString("Init Done");
     while(1)
     {
 		receiveData = USART_InChar();
-		if(receiveData == 0x32) 
-		{
-			USART_NewLine();
-			USART_OutString("Starting LED strip: ");
-			USART_OutChar(receiveData);
-			PORTB = 0x00;
-			PORTC = 0x00;
-			PORTD = Pin5;
+		//LedChainTest(receiveData);
 
-		}
-		else if (receiveData == 0x31) 
-		{
-			USART_NewLine();
-			USART_OutString("Starting LED strip: ");
-			USART_OutChar(receiveData);
-			PORTB = 0x00;
-			PORTC = 0x00;
-			PORTD = Pin5;
-
-		}
-		else if (receiveData == 0x34) 
-		{
-			USART_NewLine();
-			USART_OutString("Starting LED strip: ");
-			USART_OutChar(receiveData);
-			PORTB = Pin0;
-			PORTC = 0x00;
-			PORTD = 0x00;
-
-		}
-		else if(receiveData == 0x33) 
-		{
-			USART_NewLine();
-			USART_OutString("Starting LED strip: ");
-			USART_OutChar(receiveData);
-			PORTB = 0x00;
-			PORTC = 0x00;
-			PORTD = Pin7;
-		}
-		else if (receiveData == 0x36) 
-		{
-			USART_NewLine();
-			USART_OutString("Starting LED strip: ");
-			USART_OutChar(receiveData);
-			PORTB = Pin2;
-			PORTC = 0x00;
-			PORTD = 0x00;
-
-		}
-		else if (receiveData == 0x35) 
-		{
-			USART_NewLine();
-			USART_OutString("Starting LED strip: ");
-			USART_OutChar(receiveData);
-			PORTB = Pin1;
-			PORTC = 0x00;
-			PORTD = 0x00;
-		}
-		else
-		{
-			USART_NewLine();
-			USART_OutString("All LED Off");
-			PORTB=0x00;
-			PORTC=0x00;
-			PORTD=0x00;
-		}
     }
+}
+
+
+static void LedChainTest(unsigned char ledNr)
+{
+	if(ledNr == 0x32)
+	{
+		PORTB = 0x00;
+		PORTC = 0x00;
+		PORTD = Pin5;
+		
+	}
+	else if (ledNr == 0x31)
+	{
+		PORTB = 0x00;
+		PORTC = 0x00;
+		PORTD = Pin5;
+		
+	}
+	else if (ledNr == 0x34)
+	{
+		PORTB = Pin0;
+		PORTC = 0x00;
+		PORTD = 0x00;
+		
+	}
+	else if(ledNr == 0x33)
+	{
+		PORTB = 0x00;
+		PORTC = 0x00;
+		PORTD = Pin7;
+	}
+	else if (ledNr == 0x36)
+	{
+		PORTB = Pin2;
+		PORTC = 0x00;
+		PORTD = 0x00;
+		
+	}
+	else if (ledNr == 0x35)
+	{
+		PORTB = Pin1;
+		PORTC = 0x00;
+		PORTD = 0x00;
+	}
+	else
+	{
+		PORTB=0x00;
+		PORTC=0x00;
+		PORTD=0x00;
+	}
 }

@@ -10,8 +10,7 @@
 #define TIMEHDL_H_
 
 void TIMER0_Init(void);
-void Timer0_Handler(void);
-
+void TIMER1_Init(void);
 
 
 #endif /* TIMEHDL_H_ */
