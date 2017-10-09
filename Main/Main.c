@@ -34,7 +34,7 @@ int main(void)
 	DDRC=0xFF;
 	DDRD=0xFF;
 	//USART_Init(MYUBRR);
-	TIMER1_Init();
+	TIMER2_Init();
 	sei();  // enable global interrupts
 	USART_NewLine();
 	USART_OutString("Init Done");
