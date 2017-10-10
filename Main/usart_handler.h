@@ -38,7 +38,7 @@
 // 8 bit word length, no parity bits, one stop bit, FIFOs enabled
 // Input: unsigned int calculated BAUDRATE
 // Output: none
-void USART_Init( unsigned int ubrr);
+void USART_Init( uint32_t ubrr);
 
 //---------------------USART_NewLine---------------------
 // Output a CR,LF to UART to go to a new line
@@ -50,13 +50,13 @@ void USART_NewLine(void);
 // Wait for new serial port input
 // Input: none
 // Output: ASCII code for key typed
-unsigned char USART_InChar( void );
+uint8_t USART_InChar( void );
 
 //------------USART_OutChar------------
 // Output 8-bit to serial port
 // Input: data is an 8-bit ASCII character to be transferred
 // Output: none
-void USART_OutChar( unsigned char data );
+void USART_OutChar( uint8_t data );
 
 //------------USART_OutString------------
 // Output String (NULL termination)

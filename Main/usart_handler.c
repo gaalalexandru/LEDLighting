@@ -26,11 +26,11 @@
 #include "usart_handler.h"
 
 /* USART Initialization function*/
-void USART_Init( unsigned int ubrr)
+void USART_Init(uint32_t ubrr)
 {
 	/* Set baud rate */
-	UBRRH = (unsigned char)(ubrr>>8);
-	UBRRL = (unsigned char)ubrr;
+	UBRRH = (uint8_t)(ubrr>>8);
+	UBRRL = (uint8_t)ubrr;
 	/* Enable receiver and transmitter */
 	UCSRB = (1<<RXEN)|(1<<TXEN);
 	/* Set frame format: 8data, 2stop bit */
@@ -50,7 +50,7 @@ void USART_NewLine(void){
 // Output 8-bit to serial port
 // Input: data is an 8-bit ASCII character to be transferred
 // Output: none
-void USART_OutChar( unsigned char data )
+void USART_OutChar( uint8_t data )
 {
 	/* Wait for empty transmit buffer */
 	//while ( !( UCSRA & (1<<UDRE)) )
@@ -111,7 +111,7 @@ void USART_OutUHex(uint32_t number){
 // Wait for new serial port input
 // Input: none
 // Output: ASCII code for key typed
-unsigned char USART_InChar( void )
+uint8_t USART_InChar( void )
 {
 	/* Wait for data to be received */
 	while ( !(UCSRA & (1<<RXC)) )

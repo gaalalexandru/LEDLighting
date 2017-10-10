@@ -137,13 +137,22 @@
     </PreBuildEvent>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="configuration.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="pwm_handler.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="pwm_handler.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="timer_handler.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="timer_handler.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="Main.c">
+    <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="usart_handler.c">

@@ -5,12 +5,11 @@
  *  Author: Gaal Alexandru
  */ 
 
-
 #ifndef TIMEHDL_H_
 #define TIMEHDL_H_
 
-void TIMER0_Init(void);
-void TIMER1_Init(void);
-void TIMER2_Init(void);
+void timer0_init(void);
+void timer1_init(void);
+void timer2_init(void);
 
 #endif /* TIMEHDL_H_ */
