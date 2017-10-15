@@ -13,7 +13,7 @@
 #include "pwm_handler.h"
 
 
-#define FOSC 1000000// Clock Speed
+#define FOSC 8000000// Clock Speed
 #define BAUD 9600
 #define MYUBRR FOSC/16/BAUD-1
 
@@ -23,19 +23,22 @@ int main(void)
 {
 	uint8_t receiveData = 0;
 	PORTB=0x00;
-	PORTC=0x00;
+	//PORTC=0x00;
 	PORTD=0x00;
 	DDRB=0xFF;
-	DDRC=0xFF;
+	//DDRC=0xFF;
 	DDRD=0xFF;
-	//USART_Init(MYUBRR);
-	timer0_init();
+	USART_Init(MYUBRR);
 	pwm_init();
+	timer0_init();
+
 	sei();  // enable global interrupts
-	//USART_NewLine();
-	//USART_OutString("Init Done");
+	USART_NewLine();
+	USART_OutString("Init Done");
     while(1)
     {
+		usart_manual_control();
 		//receiveData = USART_InChar();
     }
 }
+

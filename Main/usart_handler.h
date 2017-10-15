@@ -33,6 +33,8 @@
 //#define SP   0x20
 #define DEL  0x7F
 
+void usart_manual_control(void);
+
 //------------USART_Init------------
 // Initialize the USART for 115,200 baud rate (assuming 50 MHz clock),
 // 8 bit word length, no parity bits, one stop bit, FIFOs enabled

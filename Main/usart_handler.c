@@ -24,6 +24,93 @@
 
 #include <avr/io.h>
 #include "usart_handler.h"
+#include "configuration.h"
+#include "pwm_handler.h"
+#include <ctype.h>
+
+#define USART0_Transmit	USART_OutChar
+#define USART0_Receive	USART_InChar
+
+extern volatile uint8_t compbuff[CHMAX];
+
+static unsigned char GetNextChar(void)
+{
+	char tmp;
+
+	tmp = USART0_Receive(); // get next character
+	tmp = toupper(tmp);     // force to upper case
+	return (tmp);
+}
+
+void usart_manual_control(void)
+{
+	unsigned char rxdata, channel, temp, error, i;
+
+	error = 0; // clear error flag
+	while (USART0_Receive() != '#')
+	;                              // wait for sync character
+	USART0_Transmit('#');              // echo sync character
+	channel = USART0_Receive() - 0x30; // receive channel number
+	if (channel >= CHMAX)
+	error = 1;                   // error if invalid channel
+	USART0_Transmit(channel + 0x30); // echo received character
+
+	temp = GetNextChar();  // fetch upper nibble
+	USART0_Transmit(temp); // echo received character
+	if (isxdigit(temp))    // check for a hex character
+	{
+		if (temp > '9')
+		temp -= 7; // subtract offset for A-F
+		temp -= 0x30;  // subtract ASCII offset
+	} else
+	error = 1;         // error if not hex
+	rxdata    = temp << 4; // store received upper nibble
+
+	temp = GetNextChar();  // fetch lower nibble
+	USART0_Transmit(temp); // echo received character
+	if (isxdigit(temp))    // check for a hex character
+	{
+		if (temp > '9')
+		temp -= 7; // subtract offset for A-F
+		temp -= 0x30;  // subtract ASCII offset
+	} else
+	error = 1;  // error if not hex
+	rxdata += temp; // add lower nibble to upper nibble
+
+	if (!error) // if data is good
+	{
+		compbuff[channel] = rxdata; // update compare buffer
+
+		USART0_Transmit(':'); // send OK message
+		USART0_Transmit('O');
+		USART0_Transmit('K');
+		USART0_Transmit('\r');
+		USART0_Transmit('\n');
+	} else // if data is not good
+	{
+		USART0_Transmit(':'); // send ERRor message
+		USART0_Transmit('E');
+		USART0_Transmit('R');
+		USART0_Transmit('R');
+		USART0_Transmit('\r');
+		USART0_Transmit('\n');
+	}
+	USART_OutString("PWM values are: ");
+	USART_NewLine();
+	for(i=0;i<CHMAX;i++){
+		USART_OutString("Channel: ");
+		USART_OutUDec(i);
+		USART_OutString(" = ");
+		USART_OutUHex(compbuff[i]);
+		USART_NewLine();
+	}
+	USART_OutString("PORT B = ");
+	USART_OutUHex(PORTB);
+	USART_NewLine();
+	USART_OutString("PORT D = ");
+	USART_OutUHex(PORTD);
+	USART_NewLine();
+}
 
 /* USART Initialization function*/
 void USART_Init(uint32_t ubrr)
@@ -42,8 +129,8 @@ void USART_Init(uint32_t ubrr)
 // Input: none
 // Output: none
 void USART_NewLine(void){
-  //USART_OutChar(CR);
-  //USART_OutChar(LF);
+  USART_OutChar(CR);
+  USART_OutChar(LF);
 }
 /* **************************************** Output functions **************************************** */
 //------------USART_OutChar------------
@@ -53,10 +140,10 @@ void USART_NewLine(void){
 void USART_OutChar( uint8_t data )
 {
 	/* Wait for empty transmit buffer */
-	//while ( !( UCSRA & (1<<UDRE)) )
-	//;
+	while ( !( UCSRA & (1<<UDRE)) )
+	;
 	/* Put data into buffer, sends the data */
-	//UDR = data;
+	UDR = data;
 }
 
 //------------USART_OutString------------
