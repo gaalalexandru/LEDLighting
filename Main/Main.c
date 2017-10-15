@@ -21,14 +21,13 @@
 
 int main(void)
 {
-	uint8_t receiveData = 0;
 	PORTB=0x00;
-	//PORTC=0x00;
 	PORTD=0x00;
 	DDRB=0xFF;
-	//DDRC=0xFF;
 	DDRD=0xFF;
+	#if TERMINAL_CONTROL
 	USART_Init(MYUBRR);
+	#endif  //TERMINAL_CONTROL
 	pwm_init();
 	timer0_init();
 
@@ -37,8 +36,16 @@ int main(void)
 	USART_OutString("Init Done");
     while(1)
     {
+		#if TERMINAL_CONTROL
 		usart_manual_control();
-		//receiveData = USART_InChar();
+		#endif  //TERMINAL_CONTROL
     }
 }
 
+#if 0
+	uint8_t sreg;
+	sreg = SREG;  // Save Global Interrupt Flag
+	_CLI();//Disable interrupts
+	//atomic operations
+	SREG = sreg;  // Restore Global Interrupt Flag
+#endif

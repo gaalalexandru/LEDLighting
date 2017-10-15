@@ -31,12 +31,11 @@
 #define USART0_Transmit	USART_OutChar
 #define USART0_Receive	USART_InChar
 
-extern volatile uint8_t compbuff[CHMAX];
+extern volatile uint8_t pwm_width_buffer[CHMAX];
 
-static unsigned char GetNextChar(void)
+static unsigned char get_next_char(void)
 {
 	char tmp;
-
 	tmp = USART0_Receive(); // get next character
 	tmp = toupper(tmp);     // force to upper case
 	return (tmp);
@@ -55,7 +54,7 @@ void usart_manual_control(void)
 	error = 1;                   // error if invalid channel
 	USART0_Transmit(channel + 0x30); // echo received character
 
-	temp = GetNextChar();  // fetch upper nibble
+	temp = get_next_char();  // fetch upper nibble
 	USART0_Transmit(temp); // echo received character
 	if (isxdigit(temp))    // check for a hex character
 	{
@@ -66,7 +65,7 @@ void usart_manual_control(void)
 	error = 1;         // error if not hex
 	rxdata    = temp << 4; // store received upper nibble
 
-	temp = GetNextChar();  // fetch lower nibble
+	temp = get_next_char();  // fetch lower nibble
 	USART0_Transmit(temp); // echo received character
 	if (isxdigit(temp))    // check for a hex character
 	{
@@ -79,7 +78,7 @@ void usart_manual_control(void)
 
 	if (!error) // if data is good
 	{
-		compbuff[channel] = rxdata; // update compare buffer
+		pwm_width_buffer[channel] = rxdata; // update pwm_width buffer
 
 		USART0_Transmit(':'); // send OK message
 		USART0_Transmit('O');
@@ -101,15 +100,17 @@ void usart_manual_control(void)
 		USART_OutString("Channel: ");
 		USART_OutUDec(i);
 		USART_OutString(" = ");
-		USART_OutUHex(compbuff[i]);
+		USART_OutUHex(pwm_width_buffer[i]);
 		USART_NewLine();
 	}
+	/*
 	USART_OutString("PORT B = ");
 	USART_OutUHex(PORTB);
 	USART_NewLine();
 	USART_OutString("PORT D = ");
 	USART_OutUHex(PORTD);
 	USART_NewLine();
+	*/
 }
 
 /* USART Initialization function*/

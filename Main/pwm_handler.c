@@ -11,7 +11,6 @@
 
 #include "pwm_handler.h"
 #include "configuration.h"
-//#include "gpio_handler.h"
 
 //macros to set pin assigned as pwm channels
 //if layout changes update the macros also
@@ -22,18 +21,9 @@
 #define PWM_SET_CH4(x)	set_port_b(2,x)
 #define PWM_SET_CH5(x)	set_port_b(1,x)
 
-/*
-#define PWM_SET_CH0(x) ((x == 1)?(PORTD |= (x << PIN6)):(PORTD &= ~(x << PIN6)))
-#define PWM_SET_CH1(x) ((x == 1)?(PORTD |= (x << PIN5)):(PORTD &= ~(x << PIN5)))
-#define PWM_SET_CH2(x) ((x == 1)?(PORTB |= (x << PIN0)):(PORTB &= ~(x << PIN0)))
-#define PWM_SET_CH3(x) ((x == 1)?(PORTD |= (x << PIN7)):(PORTD &= ~(x << PIN7)))
-#define PWM_SET_CH4(x) ((x == 1)?(PORTB |= (x << PIN2)):(PORTB &= ~(x << PIN2)))
-#define PWM_SET_CH5(x) ((x == 1)?(PORTB |= (x << PIN1)):(PORTB &= ~(x << PIN1)))
-*/
-
 //global buffers
-uint8_t compare[CHMAX];
-volatile uint8_t compbuff[CHMAX];
+uint8_t pwm_width[CHMAX];
+volatile uint8_t pwm_width_buffer[CHMAX];
 
 //Set PORT level true = high, false = low
 //pin = pin number to be set / cleared
@@ -77,11 +67,11 @@ static void pwm_set_all_chanels(const bool level)
 void pwm_init(void)
 {
 	uint8_t i, pwm;
-	pwm = 0x0F;
+	pwm = PWMDEFAULT;
 	for (i = 0; i < CHMAX; i++) // initialise all channels
 	{
-		compare[i]  = pwm; // set default PWM values
-		compbuff[i] = pwm; // set default PWM values
+		pwm_width[i]  = pwm; // set default PWM values
+		pwm_width_buffer[i] = pwm; // set default PWM values
 	}
 	pwm_set_all_chanels(false);
 
@@ -92,35 +82,43 @@ void pwm_update(void)
 	//static uint8_t softcount = 0xFF;
 	static uint8_t softcount = 0x00;
 	/* increment modulo 256 counter and update
-	the compare values only when counter = 0.
-	verbose code for speed
+	the pwm_width values only when counter = 0.
+	verbose code for speed, do not replace with for...
 	last element should equal CHMAX - 1 */
 	softcount++;
-	if (softcount == 0) {       
-		compare[0] = compbuff[0]; 
-		compare[1] = compbuff[1];
-		compare[2] = compbuff[2];
-		compare[3] = compbuff[3];
-		compare[4] = compbuff[4];
-		compare[5] = compbuff[5]; 
-		pwm_set_all_chanels(true);
+	if (softcount == 0)
+	{
+		pwm_width[0] = pwm_width_buffer[0]; 
+		pwm_width[1] = pwm_width_buffer[1];
+		pwm_width[2] = pwm_width_buffer[2];
+		pwm_width[3] = pwm_width_buffer[3];
+		pwm_width[4] = pwm_width_buffer[4];
+		pwm_width[5] = pwm_width_buffer[5];
+		
+		//current method fast enough and can check 0% channel setting
+		//pwm_set_all_chaels function is not needed for the moment
+		//has the drawback of not being able to set duty cycle 0%
+		//pwm_set_all_chanels(true);
+		PWM_SET_CH0((pwm_width[0] > 0));
+		PWM_SET_CH1((pwm_width[1] > 0));
+		PWM_SET_CH2((pwm_width[2] > 0));
+		PWM_SET_CH3((pwm_width[3] > 0));
+		PWM_SET_CH4((pwm_width[4] > 0));
+		PWM_SET_CH5((pwm_width[5] > 0));					
 	}
-	// clear port pin on compare match (executed on next interrupt)
-	if (compare[0] == softcount) {
+	
+	// clear port pin on pwm_width match
+	if (pwm_width[0] == softcount)
 		PWM_SET_CH0(false);
-	}
-	/*else {
-		PWM_SET_CH0(true);
-	}*/
-	if (compare[1] == softcount)
+	if (pwm_width[1] == softcount)
 		PWM_SET_CH1(false);
-	if (compare[2] == softcount)
+	if (pwm_width[2] == softcount)
 		PWM_SET_CH2(false);
-	if (compare[3] == softcount)
+	if (pwm_width[3] == softcount)
 		PWM_SET_CH3(false);
-	if (compare[4] == softcount)
+	if (pwm_width[4] == softcount)
 		PWM_SET_CH4(false);
-	if (compare[5] == softcount)
+	if (pwm_width[5] == softcount)
 		PWM_SET_CH5(false);
 }
 
