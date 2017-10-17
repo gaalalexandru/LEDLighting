@@ -2,7 +2,7 @@
  * configuration.h
  *
  * Created: 10/10/2017 10:39:14 PM
- *  Author: Alexandru Gaal
+ *  Author: Gaal Alexandru
  */ 
 
 #ifndef CONFIGURATION_H_
@@ -14,9 +14,9 @@
 
 //allow PWM channels to be manually controlled via serial terminal
 //message format is #xYY, x = channel number, YY 8bit hex value of pulse width
-#define TERMINAL_CONTROL (1)  
+#define TERMINAL_CONTROL (0)  
 
-//allow pwm channels to be manually controlled via wifi interface
-#define WIRELESS_CONTROL (0)
+//allow pwm channels to be controlled via wifi interface
+#define WIRELESS_CONTROL (1)
 
 #endif /* CONFIGURATION_H_ */

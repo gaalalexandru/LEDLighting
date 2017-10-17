@@ -2,7 +2,7 @@
  * pwm_handler.c
  *
  * Created: 10/10/2017 10:30:14 PM
- *  Author: Alexandru Gaal
+ *  Author: Gaal Alexandru
  */ 
 #include <stdbool.h>
 #include <stdint.h>
@@ -73,6 +73,8 @@ void pwm_init(void)
 		pwm_width[i]  = pwm; // set default PWM values
 		pwm_width_buffer[i] = pwm; // set default PWM values
 	}
+	DDRB |= 0x07;  //Set output pin 0, 1, 2 of port B
+	DDRD |= 0xE0;  //Set output pin 5, 6, 7 of port D
 	pwm_set_all_chanels(false);
 
 }

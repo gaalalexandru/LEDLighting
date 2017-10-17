@@ -11,23 +11,22 @@
 #include "usart_handler.h"
 #include "timer_handler.h"
 #include "pwm_handler.h"
-
+#include "wifi_handler.h"
 
 #define FOSC 8000000// Clock Speed
-#define BAUD 9600
+#define BAUD 115200 // Old value only for terminal control: 9600
 #define MYUBRR FOSC/16/BAUD-1
-
-
 
 int main(void)
 {
-	PORTB=0x00;
-	PORTD=0x00;
-	DDRB=0xFF;
-	DDRD=0xFF;
 	#if TERMINAL_CONTROL
 	USART_Init(MYUBRR);
 	#endif  //TERMINAL_CONTROL
+	
+	#if WIRELESS_CONTROL
+	wifi_init();
+	#endif //WIRELESS_CONTROL
+	
 	pwm_init();
 	timer0_init();
 
