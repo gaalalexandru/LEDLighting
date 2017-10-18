@@ -31,7 +31,7 @@ static inline void set_port_b(const uint8_t pin, const bool level)
 {
 	if (level)
 	{
-		PORTB |= 1 << pin;
+		PORTB |= (1 << pin);
 	}
 	else
 	{

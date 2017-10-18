@@ -6,8 +6,12 @@
  */ 
 //Wifi module type: ESP8266
 
+#include <util/delay.h>
 #include <avr/io.h>
 #include <avr/portpins.h>
+#include <string.h>
+#include "usart_handler.h"
+#include "configuration.h"
 
 //Pin mapping for wifi module reset (RST_ESP) and enable (CH_PD), pins have to be digital output
 //CH_PD: Chip enable. Keep it on high (3.3V) for normal operation
@@ -26,7 +30,10 @@ void wifi_init(void)
 	
 	RST_ESP_SET(1);
 	RST_ESP_SET(0);
+	RST_ESP_SET(0);
 	RST_ESP_SET(1);
 	
 	CH_PD_SET(1);
+	_delay_ms(5000);
+	USART_OutString("AT+RST\r\n");
 }

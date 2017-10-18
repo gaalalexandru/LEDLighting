@@ -33,9 +33,9 @@
 
 extern volatile uint8_t pwm_width_buffer[CHMAX];
 
-static unsigned char get_next_char(void)
+static uint8_t get_next_char(void)
 {
-	char tmp;
+	int8_t tmp;
 	tmp = USART0_Receive(); // get next character
 	tmp = toupper(tmp);     // force to upper case
 	return (tmp);
