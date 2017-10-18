@@ -23,21 +23,22 @@ int main(void)
 	USART_Init(MYUBRR);
 	#endif  //TERMINAL_CONTROL
 	
-	#if WIRELESS_CONTROL
-	wifi_init();
-	#endif //WIRELESS_CONTROL
-	
 	pwm_init();
 	timer0_init();
 
 	sei();  // enable global interrupts
 	USART_NewLine();
 	USART_OutString("Init Done");
+
+	#if WIRELESS_CONTROL
+	wifi_init();
+	#endif //WIRELESS_CONTROL
+	
     while(1)
     {
 		#if TERMINAL_CONTROL
 		usart_manual_control();
-		#endif  //TERMINAL_CONTROL
+		#endif  //TERMINAL_CONTROL	
     }
 }
 
