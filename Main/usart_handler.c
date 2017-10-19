@@ -23,6 +23,7 @@
  */
 
 #include <avr/io.h>
+#include <avr/interrupt.h>
 #include "usart_handler.h"
 #include "configuration.h"
 #include "pwm_handler.h"
@@ -113,16 +114,28 @@ void usart_manual_control(void)
 	*/
 }
 
+
+
+
 /* USART Initialization function*/
-void USART_Init(uint32_t ubrr)
+void usart_init(uint32_t ubrr)
 {
+	uint8_t sreg = SREG;  // Save Global Interrupt Flag;
+	_CLI();  //Disable interrupts
+	
 	/* Set baud rate */
 	UBRRH = (uint8_t)(ubrr>>8);
 	UBRRL = (uint8_t)ubrr;
+	
 	/* Enable receiver and transmitter */
 	UCSRB = (1<<RXEN)|(1<<TXEN);
+	
 	/* Set frame format: 8data, 2stop bit */
-	UCSRC = (1<<URSEL)|(1<<USBS)|(3<<UCSZ0);
+	/*UCSRC = (1<<URSEL)|(1<<USBS)|(3<<UCSZ0);*/
+	/* Set frame format: 8data, 1stop bit */
+	UCSRC = (1<<URSEL)|(1<<UCSZ1)|(1<<UCSZ0);	
+	
+	SREG = sreg;  // Restore Global Interrupt Flag	
 }
 
 //---------------------USART_NewLine---------------------
@@ -141,8 +154,9 @@ void USART_NewLine(void){
 void USART_OutChar( uint8_t data )
 {
 	/* Wait for empty transmit buffer */
-	while ( !( UCSRA & (1<<UDRE)) )
-	;
+	while ( !( UCSRA & (1<<UDRE)) ) {};
+	/*while ((UCSRA & (1 << UDRE)) == 0) {};*/
+
 	/* Put data into buffer, sends the data */
 	UDR = data;
 }
@@ -202,8 +216,9 @@ void USART_OutUHex(uint32_t number){
 uint8_t USART_InChar( void )
 {
 	/* Wait for data to be received */
-	while ( !(UCSRA & (1<<RXC)) )
-	;
+	while ( !(UCSRA & (1<<RXC)) ) {};
+	/*while ((UCSRA & (1 << RXC)) == 0) {};*/ 
+
 	/* Get and return received data from buffer */
 	return UDR;
 }

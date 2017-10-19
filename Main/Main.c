@@ -6,7 +6,6 @@
  */ 
 
 #include <avr/io.h>
-#include <avr/interrupt.h>
 #include "configuration.h"
 #include "usart_handler.h"
 #include "timer_handler.h"
