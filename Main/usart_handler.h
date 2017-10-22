@@ -40,7 +40,7 @@ void usart_manual_control(void);
 // 8 bit word length, no parity bits, one stop bit, FIFOs enabled
 // Input: unsigned int calculated BAUDRATE
 // Output: none
-void USART_Init( uint32_t ubrr);
+void usart_init( uint32_t ubrr);
 
 //---------------------USART_NewLine---------------------
 // Output a CR,LF to UART to go to a new line

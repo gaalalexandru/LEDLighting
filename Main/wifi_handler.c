@@ -6,7 +6,7 @@
  */ 
 //Wifi module type: ESP8266
 
-#include <util/delay.h>
+#include <avr/delay.h>
 #include <avr/io.h>
 #include <avr/portpins.h>
 #include <string.h>
@@ -23,6 +23,8 @@
 #define RST_ESP_SET(x)	PORTB |= ((x) << PIN3)
 #define	CH_PD_SET(x)	PORTB |= ((x) << PIN4)  
 
+
+
 void wifi_init(void)
 {
 	RST_ESP_DIR;
@@ -30,10 +32,10 @@ void wifi_init(void)
 	
 	RST_ESP_SET(1);
 	RST_ESP_SET(0);
-	RST_ESP_SET(0);
 	RST_ESP_SET(1);
 	
 	CH_PD_SET(1);
 	_delay_ms(5000);
 	USART_OutString("AT+RST\r\n");
+	//check if IP received
 }

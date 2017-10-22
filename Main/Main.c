@@ -6,6 +6,8 @@
  */ 
 
 #include <avr/io.h>
+#include <avr/interrupt.h>
+#include <util/atomic.h>
 #include "configuration.h"
 #include "usart_handler.h"
 #include "timer_handler.h"
@@ -14,16 +16,15 @@
 
 int main(void)
 {
-	#if 0
-	#if TERMINAL_CONTROL
-	USART_Init(MYUBRR);
-	#endif  //TERMINAL_CONTROL
-	#endif
-
-	USART_Init(MYUBRR);
+	char ReceivedByte;
+   
+	usart_init(MYUBRR);
+	
+	#if LIGHTING_FUNCTIN
 	pwm_init();
 	timer0_init();
-
+	#endif
+	
 	sei();  // enable global interrupts
 	USART_NewLine();
 	USART_OutString("Init Done");
@@ -43,7 +44,7 @@ int main(void)
 #if 0
 	uint8_t sreg;
 	sreg = SREG;  // Save Global Interrupt Flag
-	_CLI();//Disable interrupts
+	cli();//Disable interrupts
 	//atomic operations
 	SREG = sreg;  // Restore Global Interrupt Flag
 #endif

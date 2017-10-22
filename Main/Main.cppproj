@@ -82,15 +82,6 @@
   <avrgcccpp.compiler.optimization.PackStructureMembers>True</avrgcccpp.compiler.optimization.PackStructureMembers>
   <avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>
   <avrgcccpp.compiler.warnings.AllWarnings>True</avrgcccpp.compiler.warnings.AllWarnings>
-  <avrgcccpp.linker.libraries.Libraries>
-    <ListValues>
-      <Value>libm</Value>
-      <Value>libprintf_flt</Value>
-      <Value>libprintf_min</Value>
-      <Value>libscanf_flt</Value>
-      <Value>libscanf_min</Value>
-    </ListValues>
-  </avrgcccpp.linker.libraries.Libraries>
 </AvrGccCpp>
     </ToolchainSettings>
   </PropertyGroup>
@@ -126,15 +117,6 @@
   <avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>True</avrgcccpp.compiler.optimization.AllocateBytesNeededForEnum>
   <avrgcccpp.compiler.optimization.DebugLevel>Default (-g2)</avrgcccpp.compiler.optimization.DebugLevel>
   <avrgcccpp.compiler.warnings.AllWarnings>True</avrgcccpp.compiler.warnings.AllWarnings>
-  <avrgcccpp.linker.libraries.Libraries>
-    <ListValues>
-      <Value>libm</Value>
-      <Value>libprintf_flt</Value>
-      <Value>libprintf_min</Value>
-      <Value>libscanf_flt</Value>
-      <Value>libscanf_min</Value>
-    </ListValues>
-  </avrgcccpp.linker.libraries.Libraries>
   <avrgcccpp.assembler.debugging.DebugLevel>Default (-Wa,-g)</avrgcccpp.assembler.debugging.DebugLevel>
 </AvrGccCpp>
     </ToolchainSettings>
@@ -145,6 +127,9 @@
     </PreBuildEvent>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="CFile1.c">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="configuration.h">
       <SubType>compile</SubType>
     </Compile>
@@ -161,6 +146,18 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="main.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="uart_fifo.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="uart_fifo.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="uart_handler.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="uart_handler.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="usart_handler.c">

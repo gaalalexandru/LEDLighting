@@ -24,6 +24,7 @@
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/atomic.h>
 #include "usart_handler.h"
 #include "configuration.h"
 #include "pwm_handler.h"
@@ -33,6 +34,8 @@
 #define USART0_Receive	USART_InChar
 
 extern volatile uint8_t pwm_width_buffer[CHMAX];
+extern volatile uint8_t rx_msg[100];  //Incoming message buffer
+extern volatile uint8_t tx_msg[100];  //Outgoing message buffer
 
 static uint8_t get_next_char(void)
 {
@@ -104,14 +107,14 @@ void usart_manual_control(void)
 		USART_OutUHex(pwm_width_buffer[i]);
 		USART_NewLine();
 	}
-	/*
+	
 	USART_OutString("PORT B = ");
 	USART_OutUHex(PORTB);
 	USART_NewLine();
 	USART_OutString("PORT D = ");
 	USART_OutUHex(PORTD);
 	USART_NewLine();
-	*/
+	
 }
 
 
@@ -120,8 +123,9 @@ void usart_manual_control(void)
 /* USART Initialization function*/
 void usart_init(uint32_t ubrr)
 {
+
 	uint8_t sreg = SREG;  // Save Global Interrupt Flag;
-	_CLI();  //Disable interrupts
+	cli();  //Disable interrupts*/
 	
 	/* Set baud rate */
 	UBRRH = (uint8_t)(ubrr>>8);
@@ -131,9 +135,11 @@ void usart_init(uint32_t ubrr)
 	UCSRB = (1<<RXEN)|(1<<TXEN);
 	
 	/* Set frame format: 8data, 2stop bit */
-	/*UCSRC = (1<<URSEL)|(1<<USBS)|(3<<UCSZ0);*/
+	/*UCSRC = (1<<URSEL)|(1<<USBS)|(1<<UCSZ1)|(1<<UCSZ0);*/
+	
 	/* Set frame format: 8data, 1stop bit */
 	UCSRC = (1<<URSEL)|(1<<UCSZ1)|(1<<UCSZ0);	
+	UCSRB |= (1 << RXCIE); // Enable the USART Recieve Complete interrupt (USART_RXC)
 	
 	SREG = sreg;  // Restore Global Interrupt Flag	
 }
@@ -298,4 +304,12 @@ char character;
     character = USART_InChar();
   }
   return number;
+}
+
+ISR(USART_RXC_vect)
+{
+	//char ReceivedByte;
+	//ReceivedByte = UDR; // Fetch the received byte value into the variable "ByteReceived"
+	
+	//UDR = ReceivedByte; // Echo back the received byte back to the computer*/
 }

@@ -25,4 +25,6 @@
 //allow pwm channels to be controlled via wifi interface
 #define WIRELESS_CONTROL (1)
 
+//allow the control and output on pwm channels
+#define LIGHTING_FUNCTIN (1)
 #endif /* CONFIGURATION_H_ */
