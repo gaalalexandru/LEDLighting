@@ -4,7 +4,7 @@
  * Created: 10/4/2017 10:48:34 AM
  *  Author: dan.filip
  */ 
-
+#include <avr/delay.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h>
@@ -18,7 +18,7 @@ int main(void)
 {
 	char ReceivedByte;
    
-	usart_init(MYUBRR);
+	//usart_init(MYUBRR);
 	
 	#if LIGHTING_FUNCTIN
 	pwm_init();
@@ -26,8 +26,8 @@ int main(void)
 	#endif
 	
 	sei();  // enable global interrupts
-	USART_NewLine();
-	USART_OutString("Init Done");
+	//USART_NewLine();
+	//USART_OutString("Init Done");
 
 	#if WIRELESS_CONTROL
 	wifi_init();
