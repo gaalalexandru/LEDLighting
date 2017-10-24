@@ -4,7 +4,7 @@
  * Created: 10/4/2017 10:48:34 AM
  *  Author: dan.filip
  */ 
-#include <avr/delay.h>
+//#include <avr/delay.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h>
@@ -16,7 +16,7 @@
 
 int main(void)
 {
-	char ReceivedByte;
+	//char ReceivedByte;
    
 	//usart_init(MYUBRR);
 	

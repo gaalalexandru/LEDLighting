@@ -27,4 +27,8 @@
 
 //allow the control and output on pwm channels
 #define LIGHTING_FUNCTIN (1)
+
+//wifi configurations
+#define WIFI_SSID_PASSWORD		"\"My Asus\",\"Zuzuk1man\""
+
 #endif /* CONFIGURATION_H_ */
