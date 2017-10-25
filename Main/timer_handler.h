@@ -11,5 +11,6 @@
 void timer0_init(void);
 void timer1_init(void);
 void timer2_init(void);
+void timer_delay_ms(uint16_t delay);
 
 #endif /* TIMEHDL_H_ */

@@ -14,8 +14,14 @@
 #include "pwm_handler.h"
 #include "wifi_handler.h"
 
+#define TOGGLE_STATUS_LED	(PORTD ^= (1 << PIN4))
 int main(void)
 {
+	DDRC = 0xFF;
+	PORTC = 0x00;
+	
+	DDRD |= (1 << PIN4);
+	
 	//char ReceivedByte;
    
 	//usart_init(MYUBRR);
@@ -37,7 +43,10 @@ int main(void)
     {
 		#if TERMINAL_CONTROL
 		usart_manual_control();
-		#endif  //TERMINAL_CONTROL	
+		#endif  //TERMINAL_CONTROL
+		timer_delay_ms(100);
+		PORTC ^= 0xFF;
+		TOGGLE_STATUS_LED;
     }
 }
 

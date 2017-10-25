@@ -23,10 +23,10 @@
 #define TERMINAL_CONTROL (0)  
 
 //allow pwm channels to be controlled via wifi interface
-#define WIRELESS_CONTROL (1)
+#define WIRELESS_CONTROL (0)
 
 //allow the control and output on pwm channels
-#define LIGHTING_FUNCTIN (1)
+#define LIGHTING_FUNCTIN (0)
 
 //wifi configurations
 #define WIFI_SSID_PASSWORD		"\"My Asus\",\"Zuzuk1man\""

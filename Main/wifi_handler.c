@@ -6,6 +6,7 @@
  */ 
 //Wifi module type: ESP8266
 
+#if 0
 
 #include <avr/io.h>
 #include <avr/portpins.h>
@@ -147,3 +148,4 @@ Wifi init AT commands to implement:
 	AT+CIFSR						|	Get IP Address						|
 */
 
+#endif
