@@ -133,6 +133,12 @@
     <Compile Include="configuration.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="manual_control.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="manual_control.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="pwm_handler.c">
       <SubType>compile</SubType>
     </Compile>

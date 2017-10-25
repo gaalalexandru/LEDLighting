@@ -36,7 +36,7 @@ static void get_querry(char *cmd, char *response){
 	USART_OutString(cmd);
 	while(UARTRxBytesAvail())
 	{
-		cmdResponse[index] = UARTgetc();
+		cmdResponse[index] = USART_InChar();
 		if((cmdResponse[index] == '\r') || (cmdResponse[index] == '\n') ||
 		(cmdResponse[index] == 0x1b) || (cmdResponse[index] == 0x0a) ||
 		(cmdResponse[index] == 0x0d))
@@ -64,7 +64,7 @@ static void send_command(char *cmd, char *response){
 		USART_OutString(cmd);
 		while(UARTRxBytesAvail())
 		{
-			cmdResponse[index] = UARTgetc();
+			cmdResponse[index] = USART_InChar();
 			if((cmdResponse[index] == '\r') || (cmdResponse[index] == '\n') ||
 			(cmdResponse[index] == 0x1b) || (cmdResponse[index] == 0x0a) ||
 			(cmdResponse[index] == 0x0d)) {

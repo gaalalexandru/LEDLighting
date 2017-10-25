@@ -101,7 +101,7 @@ ISR (TIMER1_COMPA_vect)
 /* Timer2 Interrupt function*/
 ISR (TIMER2_COMP_vect)
 {
-
+	TOGGLE_STATUS_LED;
 }
 #endif  //USE_TIMER2
 

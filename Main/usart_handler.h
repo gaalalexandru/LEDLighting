@@ -33,87 +33,88 @@
 //#define SP   0x20
 #define DEL  0x7F
 
-void usart_manual_control(void);
 
-//------------USART_Init------------
-// Initialize the USART for 115,200 baud rate (assuming 50 MHz clock),
+// Buffersizes must be a power of 2 in size !
+//    This is for very simple code for a circular buffer.
+// Buffersizes are in 8 bits, set it to 8, 16, 32, 64 or 128.
+//    This is for very simple code without the need for atomic programming.
+// The buffer is used for speed. Characters are send in an interrupt routine.
+// If more characters are send than the buffer could contain, the functions waits for a place in the buffer.
+// The receiving of characters does not handle overflow very well, make the buffers large enough.
+#define TX_BUFFER_SIZE 64
+#define RX_BUFFER_SIZE 128
+
+#define uart_newline() uart_send_char(CR); uart_send_char(LF);
+
+/************************************************************************/
+/*                 Initialization Function declaration                  */
+/************************************************************************/
+
+//---------------------uart_init---------------------
+// Initialize the USART
 // 8 bit word length, no parity bits, one stop bit, FIFOs enabled
 // Input: unsigned int calculated BAUDRATE
 // Output: none
-void usart_init( uint32_t ubrr);
+void uart_init( uint32_t ubrr);
 
-//---------------------USART_NewLine---------------------
-// Output a CR,LF to UART to go to a new line
-// Input: none
-// Output: none
-void USART_NewLine(void);
-	
-//------------USART_InChar------------
-// Wait for new serial port input
-// Input: none
-// Output: ASCII code for key typed
-uint8_t USART_InChar( void );
+/************************************************************************/
+/*                      Output Function declarations                    */
+/************************************************************************/
 
-//------------USART_OutChar------------
+//------------uart_send_char------------
 // Output 8-bit to serial port
+// Put ASCII or non-ASCII byte, blocks (waits) if buffer is full
 // Input: data is an 8-bit ASCII character to be transferred
 // Output: none
-void USART_OutChar( uint8_t data );
+void uart_send_char( char data );
 
-//------------USART_OutString------------
+//------------uart_send_string------------
+// Print string from RAM
 // Output String (NULL termination)
 // Input: pointer to a NULL-terminated string to be transferred
 // Output: none
-void USART_OutString(char *pt);
+void uart_send_string(char *pt);
 
-//------------USART_InUDec------------
-// InUDec accepts ASCII input in unsigned decimal format
-//     and converts to a 32-bit unsigned number
-//     valid range is 0 to 4294967295 (2^32-1)
-// Input: none
-// Output: 32-bit unsigned number
-// If you enter a number above 4294967295, it will return an incorrect value
-// Backspace will remove last digit typed
-uint32_t USART_InUDec(void);
-
-//-----------------------USART_OutUDec-----------------------
+//-----------------------uart_send_udec-----------------------
 // Output a 32-bit number in unsigned decimal format
 // Input: 32-bit number to be transferred
 // Output: none
 // Variable format 1-10 digits with no space before or after
-void USART_OutUDec(uint32_t n);
+void uart_send_udec(uint32_t n);
 
-//---------------------USART_InUHex----------------------------------------
-// Accepts ASCII input in unsigned hexadecimal (base 16) format
-// Input: none
-// Output: 32-bit unsigned number
-// No '$' or '0x' need be entered, just the 1 to 8 hex digits
-// It will convert lower case a-f to uppercase A-F
-//     and converts to a 16 bit unsigned number
-//     value range is 0 to FFFFFFFF
-// If you enter a number above FFFFFFFF, it will return an incorrect value
-// Backspace will remove last digit typed
-uint32_t USART_InUHex(void);
-
-//--------------------------USART_OutUHex----------------------------
+//--------------------------uart_send_uhex----------------------------
 // Output a 32-bit number in unsigned hexadecimal format
 // Input: 32-bit number to be transferred
 // Output: none
 // Variable format 1 to 8 digits with no space before or after
-void USART_OutUHex(uint32_t number);
+void uart_send_uhex(uint32_t number);
 
-//------------USART_InString------------
+/************************************************************************/
+/*                       Input Function declarations                    */
+/************************************************************************/
+
+//------------uart_get_char---------------------
+// Wait for new serial port input
+// Put ASCII or non-ASCII byte, blocks (waits) if buffer is full
+// Input: none
+// Output: ASCII code for key typed
+uint8_t uart_get_char( void );
+
+//------------uart_get_string------------
+// Get a string with autodetect of CR,LF,CRLF, but subject to max chars.
 // Accepts ASCII characters from the serial port
 //    and adds them to a string until <enter> is typed
 //    or until max length of the string is reached.
-// It echoes each character as it is inputted.
-// If a backspace is inputted, the string is modified
-//    and the backspace is echoed
-// terminates the string with a null character
-// uses busy-waiting synchronization on RDRF
 // Input: pointer to empty buffer, size of buffer
 // Output: Null terminated string
-// -- Modified by Agustinus Darmawan + Mingjie Qiu --
-void USART_InString(char *bufPt, uint16_t max);
+uint16_t uart_get_string(char *buffer, uint16_t bufsize);
+
+/************************************************************************/
+/*                      Other Function declarations                     */
+/************************************************************************/
+void uart_puts_P(const char *p);    // Print string from FLASH MEMORY
+void uart_flush();
+uint8_t uart_tx_buflen(void);   // Get number of as yet untransmitted bytes.
+uint8_t uart_rx_buflen(void);   // Get number of bytes in the receive buffer or zero.
 
 #endif /* USARTHDL_H_ */
