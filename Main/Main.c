@@ -13,17 +13,16 @@
 #include "timer_handler.h"
 #include "pwm_handler.h"
 #include "wifi_handler.h"
+#include "manual_control.h"
 
-#define TOGGLE_STATUS_LED	(PORTD ^= (1 << PIN4))
 int main(void)
 {
+#ifdef DEBUGPIN
 	DDRC = 0xFF;
 	PORTC = 0x00;
-	
-	DDRD |= (1 << PIN4);
-	
-	//char ReceivedByte;
-   
+#endif //DEBUGPIN
+
+	INIT_STATUS_LED;
 	//usart_init(MYUBRR);
 	
 	#if LIGHTING_FUNCTIN
@@ -38,15 +37,12 @@ int main(void)
 	#if WIRELESS_CONTROL
 	wifi_init();
 	#endif //WIRELESS_CONTROL
-	
     while(1)
     {
 		#if TERMINAL_CONTROL
 		usart_manual_control();
 		#endif  //TERMINAL_CONTROL
-		timer_delay_ms(100);
-		PORTC ^= 0xFF;
-		TOGGLE_STATUS_LED;
+
     }
 }
 

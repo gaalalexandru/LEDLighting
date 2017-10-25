@@ -10,7 +10,6 @@
 
 //usart configurations
 #define FOSC 8000000// Clock Speed
-#define F_CPU FOSC
 #define BAUD 115200 // Old value only for terminal control: 9600
 #define MYUBRR FOSC/16/BAUD-1
 
@@ -26,9 +25,13 @@
 #define WIRELESS_CONTROL (0)
 
 //allow the control and output on pwm channels
-#define LIGHTING_FUNCTIN (0)
+#define LIGHTING_FUNCTIN (1)
 
 //wifi configurations
 #define WIFI_SSID_PASSWORD		"\"My Asus\",\"Zuzuk1man\""
+
+//status LED configuration
+#define TOGGLE_STATUS_LED	(PORTD ^= (1 << PIN4))
+#define INIT_STATUS_LED (DDRD |= (1 << PIN4))
 
 #endif /* CONFIGURATION_H_ */
