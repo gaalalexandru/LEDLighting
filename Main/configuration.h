@@ -11,7 +11,8 @@
 //usart configurations
 #define FOSC 8000000// Clock Speed
 #define BAUD 115200 // Old value only for terminal control: 9600
-#define MYUBRR FOSC/16/BAUD-1
+#define MYUBRR ((FOSC/(16*BAUD))-1)
+//#define MYUBRR ((FOSC/(8*BAUD))-1)
 
 //pwm configurations
 #define CHMAX 6 //maximum number of pwm channels

@@ -9,7 +9,7 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 #include "configuration.h"
-#include "usart_handler.h"
+#include "uart_handler.h"
 #include "timer_handler.h"
 #include "pwm_handler.h"
 #include "wifi_handler.h"
@@ -23,7 +23,7 @@ int main(void)
 #endif //DEBUGPIN
 
 	INIT_STATUS_LED;
-	usart_init(MYUBRR);
+	uart_init(MYUBRR);
 	
 	#if LIGHTING_FUNCTIN
 	pwm_init();
@@ -31,9 +31,9 @@ int main(void)
 	#endif
 	
 	sei();  // enable global interrupts
-	uart_newline();
-	uart_send_string("Init Done");
-
+	
+	TOGGLE_STATUS_LED;
+	
 	#if WIRELESS_CONTROL
 	wifi_init();
 	#endif //WIRELESS_CONTROL
@@ -42,7 +42,6 @@ int main(void)
 		#if TERMINAL_CONTROL
 		manual_control();
 		#endif  //TERMINAL_CONTROL
-
     }
 }
 

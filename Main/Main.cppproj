@@ -154,10 +154,10 @@
     <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="usart_handler.c">
+    <Compile Include="uart_handler.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="usart_handler.h">
+    <Compile Include="uart_handler.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="wifi_handler.c">

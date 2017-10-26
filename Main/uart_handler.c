@@ -9,7 +9,7 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 #include <stdbool.h>
-#include "usart_handler.h"
+#include "uart_handler.h"
 
 #define TXMASK (TX_BUFFER_SIZE-1)
 #define RXMASK (RX_BUFFER_SIZE-1)
@@ -35,7 +35,7 @@ static volatile unsigned char cr_flag;  // added for auto detect CR,LF,CRLF
 /************************************************************************/
 
 /* UART Initialization function*/
-void usart_init(uint32_t ubrr)
+void uart_init(uint32_t ubrr)
 {
 	//uint8_t sreg = SREG;  // Save Global Interrupt Flag;
 	cli();  //Disable interrupts*/

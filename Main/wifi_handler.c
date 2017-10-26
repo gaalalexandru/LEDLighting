@@ -10,7 +10,7 @@
 #include <avr/portpins.h>
 #include <string.h>
 #include "configuration.h"
-#include "usart_handler.h"
+#include "uart_handler.h"
 #include "timer_handler.h"
 
 //Pin mapping for wifi module reset (RST_ESP) and enable (CH_PD), pins have to be digital output

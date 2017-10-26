@@ -9,7 +9,7 @@
 #include <ctype.h>
 #include "manual_control.h"
 #include "configuration.h"
-#include "usart_handler.h"
+#include "uart_handler.h"
 #include "pwm_handler.h"
 
 /************************************************************************/
