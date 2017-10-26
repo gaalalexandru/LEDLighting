@@ -23,7 +23,7 @@ int main(void)
 #endif //DEBUGPIN
 
 	INIT_STATUS_LED;
-	//usart_init(MYUBRR);
+	usart_init(MYUBRR);
 	
 	#if LIGHTING_FUNCTIN
 	pwm_init();
@@ -31,8 +31,8 @@ int main(void)
 	#endif
 	
 	sei();  // enable global interrupts
-	//USART_NewLine();
-	//USART_OutString("Init Done");
+	uart_newline();
+	uart_send_string("Init Done");
 
 	#if WIRELESS_CONTROL
 	wifi_init();
@@ -40,7 +40,7 @@ int main(void)
     while(1)
     {
 		#if TERMINAL_CONTROL
-		usart_manual_control();
+		manual_control();
 		#endif  //TERMINAL_CONTROL
 
     }

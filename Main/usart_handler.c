@@ -189,8 +189,12 @@ uint16_t uart_get_string(char *buffer, uint16_t bufsize)
 /************************************************************************/
 /*                      Other Function definitions                      */
 /************************************************************************/
+
 void uart_flush(){
-	while(uart_rx_buflen() > 0) uart_get_char();
+	while(uart_rx_buflen() > 0) 
+	{
+		uart_get_char();
+	}
 	rx_in = rx_out = 0;
 	cr_flag = false;
 }

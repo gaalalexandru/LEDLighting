@@ -22,7 +22,7 @@
 #define TERMINAL_CONTROL (0)  
 
 //allow pwm channels to be controlled via wifi interface
-#define WIRELESS_CONTROL (0)
+#define WIRELESS_CONTROL (1)
 
 //allow the control and output on pwm channels
 #define LIGHTING_FUNCTIN (1)

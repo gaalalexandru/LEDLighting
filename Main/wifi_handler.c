@@ -6,13 +6,12 @@
  */ 
 //Wifi module type: ESP8266
 
-#if 0
-
 #include <avr/io.h>
 #include <avr/portpins.h>
 #include <string.h>
-#include "usart_handler.h"
 #include "configuration.h"
+#include "usart_handler.h"
+#include "timer_handler.h"
 
 //Pin mapping for wifi module reset (RST_ESP) and enable (CH_PD), pins have to be digital output
 //CH_PD: Chip enable. Keep it on high (3.3V) for normal operation
@@ -33,10 +32,10 @@ static void get_querry(char *cmd, char *response){
 	char	cmdResponse[100];
 	uint8_t index = 0;
 	
-	USART_OutString(cmd);
-	while(UARTRxBytesAvail())
+	uart_send_string(cmd);
+	while(uart_rx_buflen() > 0)
 	{
-		cmdResponse[index] = USART_InChar();
+		cmdResponse[index] = uart_get_char();
 		if((cmdResponse[index] == '\r') || (cmdResponse[index] == '\n') ||
 		(cmdResponse[index] == 0x1b) || (cmdResponse[index] == 0x0a) ||
 		(cmdResponse[index] == 0x0d))
@@ -61,10 +60,10 @@ static void send_command(char *cmd, char *response){
 	char	cmdResponse[100];
 	uint8_t index = 0;
 	do {
-		USART_OutString(cmd);
-		while(UARTRxBytesAvail())
+		uart_send_string(cmd);
+		while(uart_rx_buflen() > 0)
 		{
-			cmdResponse[index] = USART_InChar();
+			cmdResponse[index] = uart_get_char();
 			if((cmdResponse[index] == '\r') || (cmdResponse[index] == '\n') ||
 			(cmdResponse[index] == 0x1b) || (cmdResponse[index] == 0x0a) ||
 			(cmdResponse[index] == 0x0d)) {
@@ -86,7 +85,7 @@ static void send_command(char *cmd, char *response){
 void wifi_init(void)
 {
 	uint8_t connection_established = 0;
-	char *temp_resp;
+	char *temp_resp = NULL;
 	RST_ESP_DIR;
 	CH_PD_DIR;
 	
@@ -100,27 +99,27 @@ void wifi_init(void)
 	
 	do {
 		//Check & Set wifi mode
-		get_querry("AT+CWMODE_CUR?",&temp_resp);
+		get_querry("AT+CWMODE_CUR?",temp_resp);
 		if(strstr(temp_resp,"+CWMODE_CUR:1") == '\0' ) //Check if Station Mode is set
 		{
-			send_command("AT+CWMODE=1", &temp_resp);  //Set Station mode in flash memory
+			send_command("AT+CWMODE=1", temp_resp);  //Set Station mode in flash memory
 			//Setting temporary mode might not be necessary
 			//send_command("AT+CWMODE_CUR=1", &temp_resp);  //Set Station mode
 		}
 
 		//Check & Set access point
-		get_querry("AT+CWJAP_CUR?",&temp_resp);
+		get_querry("AT+CWJAP_CUR?",temp_resp);
 		if(strstr(temp_resp,"No AP") == '\0' ) //Check if there is no connection to any AP
 		{
 			//Might be necessary to have a very long delay between setting AP and OK received
 			//If this function is not working, send command separately, wait with timer1, get response
-			send_command(strcat("AT+CWJAP_CUR",WIFI_SSID_PASSWORD),&temp_resp); //Set AP in flash memory
+			send_command(strcat("AT+CWJAP_CUR",WIFI_SSID_PASSWORD),temp_resp); //Set AP in flash memory
 			//Setting temporary mode might not be necessary
 			//send_command("AT+CWJAP_CUR"+WIFI_SSID+WIFI_PASSWORD,&temp_resp); //Set AP
 		}
 		
 		//Check the wifi state
-		get_querry("AT+CIPSTATUS",&temp_resp);
+		get_querry("AT+CIPSTATUS",temp_resp);
 		//Might an alternative to check if state is not 5, meaning NOT connect to an AP
 		//if(strstr(temp_resp,"STATUS:5") != '\0' )  // True if string is found in temp_resp
 		if(strstr(temp_resp,"STATUS:2") == '\0' ) //Check if ESP connected to an AP and its IP is obtained
@@ -147,5 +146,3 @@ Wifi init AT commands to implement:
 	AT+CIPSTATUS					|	Gets the ESP status on the network	|
 	AT+CIFSR						|	Get IP Address						|
 */
-
-#endif
