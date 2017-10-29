@@ -48,6 +48,10 @@ void uart_init(uint32_t ubrr)
 	UBRRH = (uint8_t)(ubrr>>8);
 	UBRRL = (uint8_t)ubrr;
 	
+	#if SET_U2X
+		UCSRA = (1<<U2X);
+	#endif
+	
 	//Receive and transmit enabled, receive complete interrupt enabled (USART_RXC)
 	UCSRB = (1<<RXEN)|(1<<TXEN)|(1<<RXCIE);
 	

@@ -33,7 +33,6 @@
 //#define SP   0x20
 #define DEL  0x7F
 
-
 // Buffersizes must be a power of 2 in size !
 //    This is for very simple code for a circular buffer.
 // Buffersizes are in 8 bits, set it to 8, 16, 32, 64 or 128.

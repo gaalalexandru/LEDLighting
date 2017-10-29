@@ -8,9 +8,14 @@
 #ifndef TIMEHDL_H_
 #define TIMEHDL_H_
 
+#define timer_counter_running() (timer_counter_target_ms > timer_ms())
+
 void timer0_init(void);
 void timer1_init(void);
 void timer2_init(void);
-void timer_delay_ms(uint16_t delay);
+
+uint32_t timer_ms(void);
+void timer_delay_ms(uint32_t delay);
+void timer_counter_setup(uint16_t second);
 
 #endif /* TIMEHDL_H_ */

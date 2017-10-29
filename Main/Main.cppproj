@@ -127,9 +127,6 @@
     </PreBuildEvent>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="CFile1.c">
-      <SubType>compile</SubType>
-    </Compile>
     <Compile Include="configuration.h">
       <SubType>compile</SubType>
     </Compile>

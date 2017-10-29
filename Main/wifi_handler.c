@@ -13,92 +13,186 @@
 #include "uart_handler.h"
 #include "timer_handler.h"
 
-//Pin mapping for wifi module reset (RST_ESP) and enable (CH_PD), pins have to be digital output
-//CH_PD: Chip enable. Keep it on high (3.3V) for normal operation
-//RST_ESP: Reset. Keep it on high (3.3V) for normal operation. Put it on 0V to reset the chip.
-//RST_ESP mapped to MOSI programing pin PB3
-//CH_PD mapped MISO programing pin PB4
+// Pin mapping for ESP8266 wifi module reset (RST_ESP) and enable (CH_PD), 
+// pins have to be digital output
+// CH_PD: Chip enable. Keep it on high (3.3V) for normal operation
+// RST_ESP: Reset. Keep it on high (3.3V) for normal operation. Put it on 0V to reset the chip.
+// RST_ESP mapped to MOSI programing pin PB3
+// CH_PD mapped MISO programing pin PB4
 #define RST_ESP_DIR	DDRB |= (1 << PIN3)
 #define	CH_PD_DIR	DDRB |= (1 << PIN4)
 #define RST_ESP_SET(x)	PORTB |= ((x) << PIN3)
 #define	CH_PD_SET(x)	PORTB |= ((x) << PIN4)  
 
-// get_querry auxiliary function sends a query command to the wifi module
-// returns the query response at the end
-// Use with caution and only with query commands
-// Function gets all characters from buffer and stores it in cmdResponse array.
-// At the end saves the cmdResponse to response buffer
-static void get_querry(char *cmd, char *response){
-	char	cmdResponse[100];
-	uint8_t index = 0;
-	
-	uart_send_string(cmd);
-	while(uart_rx_buflen() > 0)
+#define ESP_DEBUG (0)
+#define SERIAL_RESULT_BUFFER_SIZE 101
+
+#define ESP_STATE_INIT 0
+#define ESP_STATE_SETMODE 1
+#define ESP_STATE_CONNECT 2
+#define ESP_STATE_CONNECT_RESPONSE 3
+#define ESP_STATE_CONNECT_MUX 4
+#define ESP_STATE_CONNECT_CLOSE_EXIST_CONNECTION 5
+#define ESP_SET_UDP_SERVER 6
+#define ESP_STATE_WAITIP 7
+#define ESP_STATE_TCPCONNECT 8
+#define ESP_STATE_SUCCESS 255
+
+#define true  1
+#define false 0
+/************************************************************************/
+/*                           Global variables                           */
+/************************************************************************/
+char serialResult[SERIAL_RESULT_BUFFER_SIZE];
+volatile uint8_t ESP_CURRENT_STATE = 0;
+uint8_t ESP_WIFI_CONNECTED = false;
+
+//volatile uint32_t timer_system_ms = 0;
+extern volatile uint32_t timer_counter_target_ms;
+/************************************************************************/
+/*                      Wifi UART interface functions                   */
+/************************************************************************/
+#if 1
+
+uint8_t receive_serial()
+{
+	memset(serialResult, 0, SERIAL_RESULT_BUFFER_SIZE-1);
+	#if ESP_DEBUG
+	Report_millisec(); uart_send_string(" WAIT INCOMING <--\r\n");
+	#endif
+
+	timer_counter_setup(4);
+	while(uart_rx_buflen() == 0 && timer_counter_running());
+	if(uart_rx_buflen() > 0)
 	{
-		cmdResponse[index] = uart_get_char();
-		if((cmdResponse[index] == '\r') || (cmdResponse[index] == '\n') ||
-		(cmdResponse[index] == 0x1b) || (cmdResponse[index] == 0x0a) ||
-		(cmdResponse[index] == 0x0d))
-		{
-			//do noting
-		}
+		uart_get_string(serialResult, SERIAL_RESULT_BUFFER_SIZE-1);
+		if(strlen(serialResult))
+		{ //sometime it return empty string :/
+			#if ESP_DEBUG
+			Report_millisec(); uart_send_string("RECEIVE:"); uart_send_string(serialResult);uart_send_string("<--\r\n");
+			#endif
+
+			if(strstr(serialResult, "busy p..") != NULL)
+			{
+				#if ESP_DEBUG
+				Report_millisec(); uart_send_string(" BUSY <--\r\n");
+				#endif
+				//delayMilliseconds(500);
+				timer_delay_ms(500);
+				return receive_serial();
+			}
+			else if(strstr(serialResult, "WIFI DISCONNECT"))
+			{
+				#if ESP_DEBUG
+				Report_millisec(); uart_send_string(" WIFI State change:"); uart_send_string(serialResult); uart_send_string("<--\r\n");
+				#endif
+				return receive_serial();
+			}
+			else if(strstr(serialResult, "WIFI GOT IP"))
+			{
+				#if ESP_DEBUG
+				Report_millisec(); uart_send_string(" WIFI State change:"); uart_send_string(serialResult); uart_send_string("<--\r\n");
+				#endif
+				if(ESP_CURRENT_STATE <= ESP_STATE_CONNECT_RESPONSE)
+				{
+					ESP_CURRENT_STATE = ESP_STATE_CONNECT_MUX;
+					ESP_WIFI_CONNECTED = true;
+					return true;
+				}
+				return receive_serial();
+			}
+			return true;
+		} 
 		else
 		{
-			index++;
+			#if ESP_DEBUG
+			Report_millisec(); uart_send_string(" EMPTY STRING <--\r\n");
+			#endif
+			timer_delay_ms(100);
+			return receive_serial(); // so, we've to try again
 		}
 	}
-	strcpy(response,cmdResponse);
+	#if ESP_DEBUG
+	else if(!interruptDelayUnFinish())
+	{
+		Report_millisec(); uart_send_string(" Timeout <--\r\n");
+	}
+	#endif
+
+	return false;
 }
 
-// send_command auxiliary function repeats the sent commend until GSM module responses with OK
-// Use with caution as not all AT commands have "OK" as good response
-// Function gets all characters from buffer and stores it in cmdResponse array.
-// At the end a search is performed for "OK" to check if the command was accepted
-// If all OK, it saves the cmdResponse to response buffer
-static void send_command(char *cmd, char *response){
-	uint8_t cmdDone = 0;
-	char	cmdResponse[100];
-	uint8_t index = 0;
-	do {
-		uart_send_string(cmd);
-		while(uart_rx_buflen() > 0)
+
+static uint8_t checkReturn(char *compareWord)
+{
+	if(receive_serial())
+	{
+		#if ESP_DEBUG
+		Report_millisec(); uart_send_string("Compare:"); uart_send_string(serialResult); uart_send_string(" WITH:"); uart_send_string(compareWord); uart_send_string("<--\r\n");
+		#endif
+
+		if(strstr(serialResult, compareWord) != NULL)
 		{
-			cmdResponse[index] = uart_get_char();
-			if((cmdResponse[index] == '\r') || (cmdResponse[index] == '\n') ||
-			(cmdResponse[index] == 0x1b) || (cmdResponse[index] == 0x0a) ||
-			(cmdResponse[index] == 0x0d)) {
-				//do noting
-			}
-			else
-			{
-				index++;
-			}
+			return true;
 		}
-		if(strstr(cmdResponse,"OK") != '\0' )
+		else	
 		{
-			cmdDone = 1;
-			strcpy(response,cmdResponse);
+			return false;
 		}
-	} while (!cmdDone);
+	}
+	else
+	{
+		#if ESP_DEBUG
+		Report_millisec(); uart_send_string(" Return:"); uart_send_string(serialResult); uart_send_string("<--\r\n");
+		#endif
+		return false;
+	}
 }
+
+
+static uint8_t checkUntilTimeout(char *compareWord, uint8_t maxWaitTime)
+{
+	uint32_t timeoutTimestamp  = timer_ms() + (maxWaitTime * 1000);
+	do {
+		if(checkReturn(compareWord)) {
+			return true;		
+		}
+	} while(timer_ms() < timeoutTimestamp);
+	return false;
+}
+
+static uint8_t sendCommand(char *sentCommand, char *compareWord)
+{
+	uart_send_string(sentCommand); uart_send_char('\r'); uart_send_char('\n');
+	if(!checkUntilTimeout(sentCommand, 1))
+	{
+		return false;		
+	}	
+	return checkUntilTimeout(compareWord, 1);
+}
+
+
+#endif
 
 void wifi_init(void)
 {
 	uint8_t connection_established = 0;
 	char *temp_resp = NULL;
+	
+	//Set the direction and value of ESP 8266 Reset (RST) and Enable (CH_PD) pin
 	RST_ESP_DIR;
 	CH_PD_DIR;
-	
 	RST_ESP_SET(1);
 	RST_ESP_SET(0);
 	RST_ESP_SET(1);
-	
 	CH_PD_SET(1);
 	
-	timer_delay_ms(5000);
+#if 1 //Temporary switch to enable initialization code
+	timer_delay_ms(2000);
 	
-	do {
+	//do {
 		//Check & Set wifi mode
+		#if 0
 		get_querry("AT+CWMODE_CUR?",temp_resp);
 		if(strstr(temp_resp,"+CWMODE_CUR:1") == '\0' ) //Check if Station Mode is set
 		{
@@ -120,8 +214,19 @@ void wifi_init(void)
 		
 		//Check the wifi state
 		get_querry("AT+CIPSTATUS",temp_resp);
+		#endif
+		
+		uart_send_string("AT+CWMODE=1\r\n");
+		timer_delay_ms(10);
+		uart_send_string(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD));
+		timer_delay_ms(5000);
+		//uart_get_string(temp_resp,100);
+		timer_delay_ms(10);
+		//uart_send_string(temp_resp);
+				
 		//Might an alternative to check if state is not 5, meaning NOT connect to an AP
 		//if(strstr(temp_resp,"STATUS:5") != '\0' )  // True if string is found in temp_resp
+		/*
 		if(strstr(temp_resp,"STATUS:2") == '\0' ) //Check if ESP connected to an AP and its IP is obtained
 		{
 			connection_established = 0;  //Not connected
@@ -129,9 +234,9 @@ void wifi_init(void)
 		else
 		{
 			connection_established = 1;
-		}		
-	} while(!connection_established);
-
+		}	*/	
+	//} while(!connection_established);
+#endif
 }
 
 /*

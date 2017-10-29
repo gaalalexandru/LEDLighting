@@ -21,7 +21,8 @@ int main(void)
 	DDRC = 0xFF;
 	PORTC = 0x00;
 #endif //DEBUGPIN
-
+	timer2_init();
+	timer1_init();
 	INIT_STATUS_LED;
 	uart_init(MYUBRR);
 	
@@ -32,7 +33,7 @@ int main(void)
 	
 	sei();  // enable global interrupts
 	
-	TOGGLE_STATUS_LED;
+	//TOGGLE_STATUS_LED;
 	
 	#if WIRELESS_CONTROL
 	wifi_init();
@@ -42,6 +43,10 @@ int main(void)
 		#if TERMINAL_CONTROL
 		manual_control();
 		#endif  //TERMINAL_CONTROL
+		/*timer_delay_ms(1000);
+		TOGGLE_STATUS_LED;
+		uart_send_udec(timer_ms());
+		uart_newline();*/
     }
 }
 
