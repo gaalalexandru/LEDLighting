@@ -215,7 +215,7 @@ void wifi_init(void)
 		//Check the wifi state
 		get_querry("AT+CIPSTATUS",temp_resp);
 		#endif
-		
+		/*
 		uart_send_string("AT+CWMODE=1\r\n");
 		timer_delay_ms(10);
 		uart_send_string(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD));
@@ -223,7 +223,30 @@ void wifi_init(void)
 		//uart_get_string(temp_resp,100);
 		timer_delay_ms(10);
 		//uart_send_string(temp_resp);
-				
+		*/		
+		if(sendCommand("AT", "OK")) 
+		{
+			STATUS_LED_ON;
+		}
+		
+		if(sendCommand("AT+CWMODE=1", "OK")) {
+			STATUS_LED_OFF;
+		}
+		
+		if(sendCommand(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD),"OK")) {
+			STATUS_LED_ON;
+		}
+		if(sendCommand("AT+CIFSR","OK")) {
+			STATUS_LED_ON;
+		}
+		if(sendCommand("AT+CWJAP?","OK")) {
+			STATUS_LED_ON;
+		}		
+		if(sendCommand("AT+CIPSTATUS","OK")) {
+			STATUS_LED_OFF;
+		}
+		
+		
 		//Might an alternative to check if state is not 5, meaning NOT connect to an AP
 		//if(strstr(temp_resp,"STATUS:5") != '\0' )  // True if string is found in temp_resp
 		/*

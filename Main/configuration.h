@@ -37,7 +37,10 @@
 #define WIFI_SSID_PASSWORD		"\"UPC5C34B5E\",\"jsUsje5vd4ue\"\r\n"
 
 //status LED configuration
+#define INIT_STATUS_LED		(DDRD |= (1 << PIN4))
 #define TOGGLE_STATUS_LED	(PORTD ^= (1 << PIN4))
-#define INIT_STATUS_LED (DDRD |= (1 << PIN4))
+#define STATUS_LED_ON		(PORTD |= (1 << PIN4))
+#define STATUS_LED_OFF		(PORTD &= ~(1 << PIN4))
+
 
 #endif /* CONFIGURATION_H_ */
