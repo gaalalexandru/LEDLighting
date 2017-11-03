@@ -174,11 +174,8 @@ static uint8_t sendCommand(char *sentCommand, char *compareWord)
 
 #endif
 
-void wifi_init(void)
+void esp_start(void)
 {
-	uint8_t connection_established = 0;
-	char *temp_resp = NULL;
-	
 	//Set the direction and value of ESP 8266 Reset (RST) and Enable (CH_PD) pin
 	RST_ESP_DIR;
 	CH_PD_DIR;
@@ -186,8 +183,74 @@ void wifi_init(void)
 	RST_ESP_SET(0);
 	RST_ESP_SET(1);
 	CH_PD_SET(1);
+}
+
+//Preliminary ESP states
+#define ESP_STATE_INIT 0
+#define ESP_STATE_SETMODE 1
+#define ESP_STATE_CONNECT 2
+#define ESP_STATE_CONNECT_RESPONSE 3
+#define ESP_STATE_CONNECT_MUX 4
+#define ESP_STATE_CONNECT_CLOSE_EXIST_CONNECTION 5
+#define ESP_SET_UDP_SERVER 6
+#define ESP_STATE_WAITIP 7
+#define ESP_STATE_TCPCONNECT 8
+#define ESP_STATE_SUCCESS 255
+
+void esp_state_machine(uint8_t)
+{
+	static uint8_t retryCount = 0;
+	
+	while( ESP_CURRENT_STATE < ESP_STATE_TCPCONNECT) 
+	{
+		switch (ESP_CURRENT_STATE)
+		{
+		case ESP_STATE_INIT:
+			//Synchronize ATMEGA8 with ESP8266
+			if(sendCommand("AT", "OK")) 
+			{
+				ESP_CURRENT_STATE = ESP_STATE_SETMODE;
+				uart_flush();
+			}	
+		break;
+		case ESP_STATE_SETMODE:
+			//Set ESP8266 mode (1 = Station, 2 = Soft Access Point, 3 = Sta + SoftAP)
+			if(sendCommand("AT+CWMODE=3", "OK")){
+				ESP_CURRENT_STATE = ESP_STATE_CONNECT;
+				uart_flush();
+			}
+		break;
+		case ESP_STATE_CONNECT:
+			//Set Access Point SSID and Password
+			uart_flush();
+			uart_send_string(strcat("\r\nAT+CWJAP=",WIFI_SSID_PASSWORD));
+			timer_delay_ms(4000);
+			/*AleGaa: In IR example this was checked with == true,
+			but it's strange and illogical. Try checking with == false*/
+			if(ESP_WIFI_CONNECTED == true)
+			{
+				ESP_CURRENT_STATE = ESP_STATE_CONNECT;
+				break;
+			}
+			else if(ESP_CURRENT_STATE == ESP_STATE_CONNECT)
+			{
+				ESP_CURRENT_STATE = ESP_STATE_CONNECT_RESPONSE;
+				retryCount = 0;
+			}
+		break;
+		case ESP_STATE_CONNECT_RESPONSE:
+			uart_flush();
+		}
+		
+	}
+	
+}
 	
 #if 1 //Temporary switch to enable initialization code
+
+	uint8_t connection_established = 0;
+	char *temp_resp = NULL;
+	
 	timer_delay_ms(2000);
 	
 	//do {
