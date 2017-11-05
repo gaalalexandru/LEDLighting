@@ -10,5 +10,6 @@
 #define WIFI_HANDLER_H_
 
 void wifi_init(void);
+void esp_state_machine(void);
 
 #endif /* WIFI_HANDLER_H_ */

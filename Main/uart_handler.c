@@ -37,7 +37,6 @@ static volatile unsigned char cr_flag;  // added for auto detect CR,LF,CRLF
 /* UART Initialization function*/
 void uart_init(uint32_t ubrr)
 {
-	//uint8_t sreg = SREG;  // Save Global Interrupt Flag;
 	cli();  //Disable interrupts*/
 	
 	// turn everything off
@@ -63,8 +62,7 @@ void uart_init(uint32_t ubrr)
 	tx_in = tx_out = rx_in = rx_out = 0;  // set all buffer indices to zero.
 
 	sei(); // enable interrupts.
-	//SREG = sreg;  // Restore Global Interrupt Flag
-	}
+}
 
 /************************************************************************/
 /*                      Output Function definitions                     */
