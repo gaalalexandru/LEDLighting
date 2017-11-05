@@ -112,7 +112,9 @@ ISR (TIMER0_OVF_vect)
 /* Timer1 Compare Match A Interrupt function*/
 ISR (TIMER1_COMPA_vect)
 {
+	#if STATUS_LED
 	TOGGLE_STATUS_LED;
+	#endif
 }
 
 /* Timer2 Interrupt function*/

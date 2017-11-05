@@ -30,8 +30,11 @@
 //allow pwm channels to be controlled via wifi interface
 #define WIRELESS_CONTROL (1)
 
-//allow the control and output on pwm channels
-#define LIGHTING_FUNCTIN (1)
+//enable timer0 and pwm channel outputs
+#define LIGHTING_FUNCTIN (0)
+
+//enable timer1 and status LED init & toggle
+#define STATUS_LED (1)
 
 //wifi configurations
 #define WIFI_SSID_PASSWORD		"\"UPC5C34B5E\",\"jsUsje5vd4ue\"\r\n"

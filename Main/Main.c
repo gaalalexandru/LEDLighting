@@ -17,33 +17,44 @@
 
 int main(void)
 {
-	//uart_init(MYUBRR);
-	sei();  // enable global interrupts
-	uart_send_string("UART init done");
+	cli();  //Disable interrupts*/
+
 #ifdef DEBUGPIN
 	DDRC = 0xFF;
 	PORTC = 0x00;
 #endif //DEBUGPIN
+
 	timer2_init();
+	
+	#if STATUS_LED
 	timer1_init();
 	INIT_STATUS_LED;
+	#endif  //STATUS_LED
 
-	#if 0//LIGHTING_FUNCTIN
+	uart_init(MYUBRR);
+	uart_send_string("UART init done");
+	
+	#if LIGHTING_FUNCTIN
 	pwm_init();
 	timer0_init();
-	#endif
+	#endif  //LIGHTING_FUNCTIN
 	
 	sei();  // enable global interrupts
 	
 	#if WIRELESS_CONTROL
 	wifi_init();
 	#endif //WIRELESS_CONTROL
+	
     while(1)
     {
 		#if TERMINAL_CONTROL
 		manual_control();
 		#endif  //TERMINAL_CONTROL
+		
+		#if WIRELESS_CONTROL
 		esp_state_machine();
+		#endif //WIRELESS_CONTROL
+		
 		/*timer_delay_ms(1000);
 		TOGGLE_STATUS_LED;
 		uart_send_udec(timer_ms());

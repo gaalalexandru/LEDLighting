@@ -37,7 +37,7 @@ static volatile unsigned char cr_flag;  // added for auto detect CR,LF,CRLF
 /* UART Initialization function*/
 void uart_init(uint32_t ubrr)
 {
-	cli();  //Disable interrupts*/
+	//cli();  //Disable interrupts*/
 	
 	// turn everything off
 	UCSRA = 0x00;  // writing zero to UCSRnA is probably not needed.
@@ -61,7 +61,7 @@ void uart_init(uint32_t ubrr)
 	cr_flag = false;  // set default, no 'cr' detected yet.
 	tx_in = tx_out = rx_in = rx_out = 0;  // set all buffer indices to zero.
 
-	sei(); // enable interrupts.
+	//sei(); // enable interrupts.
 }
 
 /************************************************************************/
