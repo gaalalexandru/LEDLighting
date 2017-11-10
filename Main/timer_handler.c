@@ -19,9 +19,7 @@
 /************************************************************************/
 /*	                          Global Variables                          */
 /************************************************************************/
-
-volatile uint32_t timer_system_ms = 0;
-volatile uint32_t timer_counter_target_ms = 0;
+volatile uint32_t timer_system_ms = 0;  //system startup counter in milliseconds
 
 /************************************************************************/
 /*	                  Timer Initialization Functions                    */
@@ -60,10 +58,10 @@ void timer2_init(void)
 	TCCR2 = (1 << WGM21)|(1 << CS22);
 	TCNT2 = 0;
 	//125 clock cycles is equivalent to 1 ms with the following setup:
-	//system clock 8 Mhz
+	//system clock 8 MHz
 	//timer1 clock prescaler (divider) = 64 => timer1 clock 125 kHz
 	//8000000 / 64 = 125000 (1 second)
-	// 125000 / 1000 = 125 (1 mili second)
+	// 125000 / 1000 = 125 (1 millisecond)
 	OCR2 = 125;
 	TIMSK  |= (1 << OCIE2);  //Enable Timer1 output compare trigger OCIE2
 }
@@ -83,21 +81,13 @@ void timer_delay_ms(uint32_t delay)
 /* Millisecond counter function since system start-up*/
 inline uint32_t timer_ms(void)
 {
-	/*uint32_t currMillis;
-	ATOMIC_BLOCK(ATOMIC_FORCEON)
-	{
-		currMillis = timer_system_ms;
-	}*/
-	return timer_system_ms/*timer_system_ms*/;
+	//Not necessary to make atomic operation since it's 
+	//a short and fast function and it is not critical if
+	//returned value is +/- 1 ms in this case
+	return timer_system_ms;
 }
 
-/* Passive counter / delay setup function*/
-/* This will not interrupt the program and will not loop*/
-/* will only set a flag when counter value expider*/
-void timer_counter_setup(uint16_t second)
-{
-	timer_counter_target_ms = timer_ms() + (second * 1000);
-}
+
 
 /************************************************************************/
 /*	               Timer Interrupt Service Routines                     */

@@ -157,10 +157,10 @@
     <Compile Include="uart_handler.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="wifi_handler.c">
+    <Compile Include="esp_wifi_handler.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="wifi_handler.h">
+    <Compile Include="esp_wifi_handler.h">
       <SubType>compile</SubType>
     </Compile>
   </ItemGroup>

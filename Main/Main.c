@@ -12,14 +12,14 @@
 #include "uart_handler.h"
 #include "timer_handler.h"
 #include "pwm_handler.h"
-#include "wifi_handler.h"
+#include "esp_wifi_handler.h"
 #include "manual_control.h"
 
 int main(void)
 {
 	cli();  //Disable interrupts*/
 
-#ifdef DEBUGPIN
+#if USE_DEBUGPIN
 	DDRC = 0xFF;
 	PORTC = 0x00;
 #endif //DEBUGPIN
@@ -32,9 +32,9 @@ int main(void)
 	#endif  //STATUS_LED
 
 	uart_init(MYUBRR);
-	uart_send_string("UART init done");
+	//uart_send_string("UART init done");
 	
-	#if LIGHTING_FUNCTIN
+	#if LIGHTING_FUNCTION
 	pwm_init();
 	timer0_init();
 	#endif  //LIGHTING_FUNCTIN
@@ -42,7 +42,7 @@ int main(void)
 	sei();  // enable global interrupts
 	
 	#if WIRELESS_CONTROL
-	wifi_init();
+	esp_init();
 	#endif //WIRELESS_CONTROL
 	
     while(1)
@@ -55,10 +55,12 @@ int main(void)
 		esp_state_machine();
 		#endif //WIRELESS_CONTROL
 		
-		/*timer_delay_ms(1000);
-		TOGGLE_STATUS_LED;
+		#if 0
+		timer_delay_ms(1000);
+		PORTC ^= 0xFF;
 		uart_send_udec(timer_ms());
-		uart_newline();*/
+		uart_newline();
+		#endif
     }
 }
 

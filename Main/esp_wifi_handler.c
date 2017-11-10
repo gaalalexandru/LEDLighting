@@ -12,6 +12,7 @@
 #include "configuration.h"
 #include "uart_handler.h"
 #include "timer_handler.h"
+#include "esp_wifi_handler.h"
 
 // Pin mapping for ESP8266 wifi module reset (RST_ESP) and enable (CH_PD), 
 // pins have to be digital output
@@ -28,34 +29,34 @@
 #define SERIAL_RESULT_BUFFER_SIZE 101
 
 //Preliminary ESP states
-#define ESP_STATE_INIT		0
-#define ESP_STATE_SETMODE	1
-#define ESP_STATE_CONNECT	2
-#define ESP_STATE_CHECK_IP	3
-#define ESP_STATE_SETMUX	4
-#define ESP_STATE_START_TCP_SERVER	5
-#define ESP_STATE_WAIT_COMMANDS		6
-
-#define ESP_STATE_CONNECT_RESPONSE 33
-#define ESP_STATE_CONNECT_MUX 44
+#define ESP_STATE_INIT			0
+#define ESP_STATE_SETMODE		1
+#define ESP_STATE_CONNECT		2
+#define ESP_STATE_CHECK_IP		3
+#define ESP_STATE_CHECK_STATUS	4
+#define ESP_STATE_SETMUX		5
+#define ESP_STATE_START_TCP_SERVER	6
+#define ESP_STATE_WAIT_COMMANDS		7
 
 #define true  1
 #define false 0
+
+/* To define the maximum waiting time for a response*/
+#define set_response_timeout(x)	(response_max_timestamp =  (timer_ms() + ((x) * 1000)))
+
+/* Will return true if timeout expired*/
+#define waiting_response()	(response_max_timestamp > timer_ms())
 
 /************************************************************************/
 /*                           Global variables                           */
 /************************************************************************/
 char serialResult[SERIAL_RESULT_BUFFER_SIZE];
 volatile uint8_t ESP_CURRENT_STATE = 0;
-uint8_t ESP_WIFI_CONNECTED = false;
+volatile uint32_t response_max_timestamp;
 
-//volatile uint32_t timer_system_ms = 0;
-extern volatile uint32_t timer_counter_target_ms;
 /************************************************************************/
 /*                      Wifi UART interface functions                   */
 /************************************************************************/
-#if 1
-
 uint8_t receive_serial()
 {
 	memset(serialResult, 0, SERIAL_RESULT_BUFFER_SIZE-1);
@@ -63,8 +64,8 @@ uint8_t receive_serial()
 	Report_millisec(); uart_send_string(" WAIT INCOMING <--\r\n");
 	#endif
 
-	timer_counter_setup(4);
-	while(uart_rx_buflen() == 0 && timer_counter_running());
+	set_response_timeout(4);
+	while(uart_rx_buflen() == 0 && waiting_response());
 	if(uart_rx_buflen() > 0)
 	{
 		uart_get_string(serialResult, SERIAL_RESULT_BUFFER_SIZE-1);
@@ -79,29 +80,8 @@ uint8_t receive_serial()
 				#if ESP_DEBUG
 				Report_millisec(); uart_send_string(" BUSY <--\r\n");
 				#endif
-				//delayMilliseconds(500);
 				timer_delay_ms(500);
-				return receive_serial();
-			}
-			else if(strstr(serialResult, "WIFI DISCONNECT"))
-			{
-				#if ESP_DEBUG
-				Report_millisec(); uart_send_string(" WIFI State change:"); uart_send_string(serialResult); uart_send_string("<--\r\n");
-				#endif
-				return receive_serial();
-			}
-			else if(strstr(serialResult, "WIFI GOT IP"))
-			{
-				#if ESP_DEBUG
-				Report_millisec(); uart_send_string(" WIFI State change:"); uart_send_string(serialResult); uart_send_string("<--\r\n");
-				#endif
-				if(ESP_CURRENT_STATE <= ESP_STATE_CONNECT_RESPONSE)
-				{
-					ESP_CURRENT_STATE = ESP_STATE_CONNECT_MUX;
-					ESP_WIFI_CONNECTED = true;
-					return true;
-				}
-				return receive_serial();
+				return receive_serial();  //Try again
 			}
 			return true;
 		} 
@@ -120,12 +100,11 @@ uint8_t receive_serial()
 		Report_millisec(); uart_send_string(" Timeout <--\r\n");
 	}
 	#endif
-
 	return false;
 }
 
 
-static uint8_t checkReturn(char *compareWord)
+static uint8_t check_return(char *compareWord)
 {
 	if(receive_serial())
 	{
@@ -152,31 +131,28 @@ static uint8_t checkReturn(char *compareWord)
 }
 
 
-static uint8_t checkUntilTimeout(char *compareWord, uint8_t maxWaitTime)
+static uint8_t check_until_timeout(char *compareWord, uint8_t maxWaitTime)
 {
 	uint32_t timeoutTimestamp  = timer_ms() + (maxWaitTime * 1000);
 	do {
-		if(checkReturn(compareWord)) {
+		if(check_return(compareWord)) {
 			return true;		
 		}
 	} while(timer_ms() < timeoutTimestamp);
 	return false;
 }
 
-static uint8_t sendCommand(char *sentCommand, char *compareWord)
+static uint8_t send_command(char *sentCommand, char *compareWord)
 {
 	uart_send_string(sentCommand); uart_send_char('\r'); uart_send_char('\n');
-	if(!checkUntilTimeout(sentCommand, 1))
+	if(!check_until_timeout(sentCommand, 1))
 	{
 		return false;		
 	}	
-	return checkUntilTimeout(compareWord, 1);
+	return check_until_timeout(compareWord, 1);
 }
 
-
-#endif
-
-void wifi_init(void)
+void esp_init(void)
 {
 	//Set the direction and value of ESP 8266 Reset (RST) and Enable (CH_PD) pin
 	RST_ESP_DIR;
@@ -185,9 +161,8 @@ void wifi_init(void)
 	RST_ESP_SET(0);
 	RST_ESP_SET(1);
 	CH_PD_SET(1);
+	timer_delay_ms(4000);  //Wait 4 second until ESP is started and finishes standard junk output :)
 }
-
-
 
 void esp_state_machine(void)
 {
@@ -198,7 +173,7 @@ void esp_state_machine(void)
 		{
 			case ESP_STATE_INIT:
 				//Synchronize ATMEGA8 with ESP8266
-				if(sendCommand("AT", "OK"))
+				if(send_command("AT", "OK"))
 				{
 					ESP_CURRENT_STATE = ESP_STATE_SETMODE;
 					uart_flush();
@@ -213,7 +188,7 @@ void esp_state_machine(void)
 				//this could make the State Machine slightly simpler
 				//feature to be implemented TODO
 				
-				if(sendCommand("AT+CWMODE=3", "OK"))
+				if(send_command("AT+CWMODE=3", "OK"))
 				{
 					ESP_CURRENT_STATE = ESP_STATE_CONNECT;
 					uart_flush();
@@ -227,21 +202,36 @@ void esp_state_machine(void)
 				//or wifi through mobile device connecting to SoftAP of ESP
 				//feature to be implemented TODO
 				//uint8_t *wifi_credentials = strcat(WIFI_SSID,WIFI_PASSWORD);			
-				//if(sendCommand(strcat("AT+CWMODE=3",wifi_credentials), "OK"))
+				//if(send_command(strcat("AT+CWMODE=3",wifi_credentials), "OK"))
 				
-				if(sendCommand(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD),"OK"))
+				//send_command not used, because it's necessary to wait a little
+				//before checking for OK response
+				uart_send_string(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD));
+				timer_delay_ms(3000);
+				if(check_until_timeout("OK",3))
+				//if(send_command(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD),"OK"))
 				{
-					timer_delay_ms(4000);
+					//timer_delay_ms(4000);
 					ESP_CURRENT_STATE = ESP_STATE_CHECK_IP;
 					uart_flush();
 				}
 			break;			
 			case ESP_STATE_CHECK_IP:		
 				//Check if ESP received IP from AP
-				if(sendCommand("AT+CIFSR","+CIFSR:STAIP,\"0.0.0.0\""))
-				{  
+				//if(send_command("AT+CIFSR","+CIFSR:STAIP,\"0.0.0.0\""))
+				if(send_command("AT+CIFSR","OK"))  
+				//To be replaced with an invalid IP like 0.0.0.0 
+				//or a piece of the expected IP, like 192.168.
+				//and re-think logic of IF - True - Else statement
+				{
+					//IP received, meaning successful connection to AP
+					//uart_send_string("Connected to AP");
+					ESP_CURRENT_STATE = ESP_STATE_CHECK_STATUS;
+				}
+				else
+				{
 					//This will be true if no IP received from AP
-					uart_send_string("Did not connect to AP");
+					//uart_send_string("Did not connect to AP");
 					ESP_CURRENT_STATE = ESP_STATE_CONNECT;  //Reset state to connect
 					++retry_connect;
 					if(retry_connect > 5)
@@ -249,19 +239,21 @@ void esp_state_machine(void)
 						//AleGaa: In case of unsuccessful connection to AP
 						//reset the system or raise a visual warning
 						//feature to be implemented TODO
-					}
+					}					
 				}
-				else
+				uart_flush();
+			break;		
+			case ESP_STATE_CHECK_STATUS:
+				//Check ESP Status (status = 2, means IP received)
+				if(send_command("AT+CIPSTATUS", "OK"))
 				{
-					//IP received, meaning suspenseful connection to AP
-					uart_send_string("Connected to AP");
 					ESP_CURRENT_STATE = ESP_STATE_SETMUX;
 				}
 				uart_flush();
 			break;
 			case ESP_STATE_SETMUX:
 				//Set ESP to accept multiple connections
-				if(sendCommand("AT+CIPMUX=1", "OK"))
+				if(send_command("AT+CIPMUX=1", "OK"))
 				{
 					ESP_CURRENT_STATE = ESP_STATE_START_TCP_SERVER;
 				}
@@ -273,7 +265,7 @@ void esp_state_machine(void)
 				//for future versions this will be inputed via serial interface
 				//or wifi through mobile device connecting to SoftAP of ESP
 				//feature to be implemented TODO
-				if(sendCommand("AT+CIPSERVER=1,1001", "OK"))
+				if(send_command("AT+CIPSERVER=1,1001", "OK"))
 				{
 					ESP_CURRENT_STATE = ESP_STATE_WAIT_COMMANDS;
 				}
@@ -284,30 +276,29 @@ void esp_state_machine(void)
 	}  //end of while( ESP_CURRENT_STATE < ESP_STATE_WAIT_COMMANDS) 
 }
 
-	
 #if 0 //Temporary switch to enable initialization code
 
-		if(sendCommand("AT", "OK")) {
+		if(send_command("AT", "OK")) {
 			STATUS_LED_ON;
 		}
 		
-		if(sendCommand("AT+CWMODE=1", "OK")) {
+		if(send_command("AT+CWMODE=1", "OK")) {
 			STATUS_LED_OFF;
 		}
 		
-		if(sendCommand(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD),"OK")) {
+		if(send_command(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD),"OK")) {
 			STATUS_LED_ON;
 		}
 		
-		if(sendCommand("AT+CIFSR","OK")) {
+		if(send_command("AT+CIFSR","OK")) {
 			STATUS_LED_ON;
 		}
 		
-		if(sendCommand("AT+CWJAP?","OK")) {
+		if(send_command("AT+CWJAP?","OK")) {
 			STATUS_LED_ON;
 		}
-			
-		if(sendCommand("AT+CIPSTATUS","OK")) {
+
+		if(send_command("AT+CIPSTATUS","OK")) {
 			STATUS_LED_OFF;
 		}
 }
