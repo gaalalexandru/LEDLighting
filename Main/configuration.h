@@ -39,5 +39,7 @@
 #define STATUS_LED_ON		(PORTD |= (1 << PIN4))
 #define STATUS_LED_OFF		(PORTD &= ~(1 << PIN4))
 
+// #define INIT_STATUS_LED		(DDRB |= (1 << PIN2))
+// #define TOGGLE_STATUS_LED	(PORTB ^= (1 << PIN2))
 
 #endif /* CONFIGURATION_H_ */

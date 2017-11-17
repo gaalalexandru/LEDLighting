@@ -42,10 +42,10 @@
 #define false 0
 
 /* To define the maximum waiting time for a response*/
-#define set_response_timeout(x)	(response_max_timestamp =  (timer_ms() + ((x) * 1000)))
+#define SET_RESPONSE_TIMEOUT(x)	(response_max_timestamp =  (timer_ms() + ((x) * 1000)))
 
 /* Will return true if timeout expired*/
-#define waiting_response()	(response_max_timestamp > timer_ms())
+#define WAITING_RESPONSE()	(response_max_timestamp > timer_ms())
 
 /************************************************************************/
 /*                           Global variables                           */
@@ -64,8 +64,8 @@ uint8_t receive_serial()
 	Report_millisec(); uart_send_string(" WAIT INCOMING <--\r\n");
 	#endif
 
-	set_response_timeout(4);
-	while(uart_rx_buflen() == 0 && waiting_response());
+	SET_RESPONSE_TIMEOUT(4);
+	while(uart_rx_buflen() == 0 && WAITING_RESPONSE());
 	if(uart_rx_buflen() > 0)
 	{
 		uart_get_string(serialResult, SERIAL_RESULT_BUFFER_SIZE-1);
@@ -206,15 +206,22 @@ void esp_state_machine(void)
 				
 				//send_command not used, because it's necessary to wait a little
 				//before checking for OK response
+				uart_flush();
 				uart_send_string(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD));
-				timer_delay_ms(3000);
-				if(check_until_timeout("OK",3))
+				timer_delay_ms(1000);
+				if(check_until_timeout("OK",5))
 				//if(send_command(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD),"OK"))
 				{
 					//timer_delay_ms(4000);
 					ESP_CURRENT_STATE = ESP_STATE_CHECK_IP;
-					uart_flush();
 				}
+				else 
+				{
+					/*uart_send_string("AT+CWQAP\n\r");*/
+					timer_delay_ms(100);
+					ESP_CURRENT_STATE = ESP_STATE_INIT;
+				}
+				uart_flush();
 			break;			
 			case ESP_STATE_CHECK_IP:		
 				//Check if ESP received IP from AP
@@ -274,32 +281,47 @@ void esp_state_machine(void)
 			break;
 		}  //end of switch (ESP_CURRENT_STATE)
 	}  //end of while( ESP_CURRENT_STATE < ESP_STATE_WAIT_COMMANDS) 
-}
+
 
 #if 0 //Temporary switch to enable initialization code
 
 		if(send_command("AT", "OK")) {
 			STATUS_LED_ON;
 		}
+		uart_flush();
 		
 		if(send_command("AT+CWMODE=1", "OK")) {
 			STATUS_LED_OFF;
 		}
-		
-		if(send_command(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD),"OK")) {
-			STATUS_LED_ON;
+		uart_flush();
+		uart_send_string(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD));	
+			
+		if(check_until_timeout("OK",5))
+		{
+		} else {
+			RST_ESP_SET(1);
+			RST_ESP_SET(0);
+			RST_ESP_SET(1);
+			uart_send_string("AT+RST\r\n");
+			timer_delay_ms(15000);
 		}
-		
+		/*if(send_command(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD),"OK")) {
+			STATUS_LED_ON;
+		}*/
+		uart_flush();		
 		if(send_command("AT+CIFSR","OK")) {
 			STATUS_LED_ON;
 		}
-		
+		uart_flush();		
 		if(send_command("AT+CWJAP?","OK")) {
 			STATUS_LED_ON;
 		}
-
+		uart_flush();
 		if(send_command("AT+CIPSTATUS","OK")) {
 			STATUS_LED_OFF;
 		}
-}
+		uart_flush();	
+		
 #endif
+
+}
