@@ -28,6 +28,8 @@ static uint8_t get_next_char(void)
 	return (tmp);
 }
 
+
+//can't use manual control if wifi module is turned on
 void manual_control(void)
 {
 	unsigned char rxdata, channel, temp, error, i;

@@ -9,6 +9,18 @@
 #ifndef PWM_HANDLER_H_
 #define PWM_HANDLER_H_
 
+/*
+enum pwm_channels 
+{
+	pwm_channel_0 = 0x30;
+	pwm_channel_1,
+	pwm_channel_2,
+	pwm_channel_3,
+	pwm_channel_4,
+	pwm_channel_5,
+	pwm_channel_numbers
+	};*/
+
 void pwm_init(void);
 void pwm_update(void);
 

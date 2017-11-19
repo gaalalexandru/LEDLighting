@@ -21,11 +21,11 @@
 
 //pwm configurations
 #define CHMAX 6 //maximum number of pwm channels
-#define PWMDEFAULT 0x00  //default pulse width
+#define PWMDEFAULT 0x01  //default pulse width
 
 
 #define WIRELESS_CONTROL	(1)	//allow pwm channels to be controlled via wifi interface
-#define LIGHTING_FUNCTION	(0)	//enable timer0 and pwm channel outputs
+#define LIGHTING_FUNCTION	(1)	//enable timer0 and pwm channel outputs
 #define STATUS_LED			(1)	//enable timer1 and status LED init & toggle
 #define USE_DEBUGPIN		(0)	//enable free pin to be used for debugging / measurements
 #define TERMINAL_CONTROL	(0)	//allow PWM channels to be manually controlled via serial terminal

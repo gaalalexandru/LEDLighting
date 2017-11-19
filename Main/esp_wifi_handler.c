@@ -25,7 +25,7 @@
 #define RST_ESP_SET(x)	PORTB |= ((x) << PIN3)
 #define	CH_PD_SET(x)	PORTB |= ((x) << PIN4)  
 
-#define ESP_DEBUG (0)
+/*#define ESP_DEBUG (0)*/
 #define SERIAL_RESULT_BUFFER_SIZE 101
 
 //Preliminary ESP states
@@ -53,6 +53,7 @@
 char serialResult[SERIAL_RESULT_BUFFER_SIZE];
 volatile uint8_t ESP_CURRENT_STATE = 0;
 volatile uint32_t response_max_timestamp;
+extern volatile uint8_t pwm_width_buffer[CHMAX];
 
 /************************************************************************/
 /*                      Wifi UART interface functions                   */
@@ -60,26 +61,17 @@ volatile uint32_t response_max_timestamp;
 uint8_t receive_serial()
 {
 	memset(serialResult, 0, SERIAL_RESULT_BUFFER_SIZE-1);
-	#if ESP_DEBUG
-	Report_millisec(); uart_send_string(" WAIT INCOMING <--\r\n");
-	#endif
-
 	SET_RESPONSE_TIMEOUT(4);
-	while(uart_rx_buflen() == 0 && WAITING_RESPONSE());
+	
+	while(uart_rx_buflen() == 0 && WAITING_RESPONSE()) { /*wait*/ }
 	if(uart_rx_buflen() > 0)
 	{
 		uart_get_string(serialResult, SERIAL_RESULT_BUFFER_SIZE-1);
 		if(strlen(serialResult))
 		{ //sometime it return empty string :/
-			#if ESP_DEBUG
-			Report_millisec(); uart_send_string("RECEIVE:"); uart_send_string(serialResult);uart_send_string("<--\r\n");
-			#endif
 
 			if(strstr(serialResult, "busy p..") != NULL)
 			{
-				#if ESP_DEBUG
-				Report_millisec(); uart_send_string(" BUSY <--\r\n");
-				#endif
 				timer_delay_ms(500);
 				return receive_serial();  //Try again
 			}
@@ -87,19 +79,10 @@ uint8_t receive_serial()
 		} 
 		else
 		{
-			#if ESP_DEBUG
-			Report_millisec(); uart_send_string(" EMPTY STRING <--\r\n");
-			#endif
 			timer_delay_ms(100);
 			return receive_serial(); // so, we've to try again
 		}
 	}
-	#if ESP_DEBUG
-	else if(!interruptDelayUnFinish())
-	{
-		Report_millisec(); uart_send_string(" Timeout <--\r\n");
-	}
-	#endif
 	return false;
 }
 
@@ -108,10 +91,6 @@ static uint8_t check_return(char *compareWord)
 {
 	if(receive_serial())
 	{
-		#if ESP_DEBUG
-		Report_millisec(); uart_send_string("Compare:"); uart_send_string(serialResult); uart_send_string(" WITH:"); uart_send_string(compareWord); uart_send_string("<--\r\n");
-		#endif
-
 		if(strstr(serialResult, compareWord) != NULL)
 		{
 			return true;
@@ -123,9 +102,6 @@ static uint8_t check_return(char *compareWord)
 	}
 	else
 	{
-		#if ESP_DEBUG
-		Report_millisec(); uart_send_string(" Return:"); uart_send_string(serialResult); uart_send_string("<--\r\n");
-		#endif
 		return false;
 	}
 }
@@ -167,6 +143,9 @@ void esp_init(void)
 void esp_state_machine(void)
 {
 	static uint8_t retry_connect = 0;
+	char *currStrPos, *dataPtr;
+	uint8_t channel_nr = 0;
+	uint8_t channel_value = 0;
 	while( ESP_CURRENT_STATE < ESP_STATE_WAIT_COMMANDS) 
 	{
 		switch (ESP_CURRENT_STATE)
@@ -238,9 +217,9 @@ void esp_state_machine(void)
 				else
 				{
 					//This will be true if no IP received from AP
-					//uart_send_string("Did not connect to AP");
+					//Did not connect to AP
 					ESP_CURRENT_STATE = ESP_STATE_CONNECT;  //Reset state to connect
-					++retry_connect;
+					retry_connect++;
 					if(retry_connect > 5)
 					{
 						//AleGaa: In case of unsuccessful connection to AP
@@ -280,7 +259,50 @@ void esp_state_machine(void)
 				//AleGaa maybe move timer0 and pwm initialization here, so that the CPU load during ESP setup is lower
 			break;
 		}  //end of switch (ESP_CURRENT_STATE)
-	}  //end of while( ESP_CURRENT_STATE < ESP_STATE_WAIT_COMMANDS) 
+	}  //end of while( ESP_CURRENT_STATE < ESP_STATE_WAIT_COMMANDS)
+	
+	//Command format sent through TCP:
+	//"+IPD,x,y:$H#DD"
+	//x = connection number
+	//y = number of characters in message, after ":"
+	//$ = start of channel number character(s)
+	//H = HEX value of PWM channel number to be changed
+	//# = start of PWM duty cycle value character(s)
+	//DD = HEX value of PWM duty cycle for selected channel
+	//		00 = 0%, 7F = 50%, FF = 100%
+	if( ESP_CURRENT_STATE == ESP_STATE_WAIT_COMMANDS) 
+	{
+		if(check_until_timeout("+IPD,", 5))
+		{
+			currStrPos = strstr(serialResult, "+IPD,");
+			currStrPos += 5;
+			currStrPos = strchr(currStrPos, '$');  //find start of channel byte
+			dataPtr = currStrPos + 1;
+			channel_nr = (((uint8_t)*dataPtr) - 0x30);  //save the target channel nr.*/
+			//channel_nr = (*dataPtr);  //save the target channel nr.*/
+						
+			currStrPos = strchr(currStrPos, '#');  //find start of channel byte		
+			dataPtr = currStrPos + 1;
+			channel_value = *dataPtr;  //save the target duty cycle value
+			
+			pwm_width_buffer[channel_nr] = channel_value; // update pwm_width buffer
+			
+			#if 0					
+			if(*dataPtr == 0x31)
+			{
+				DDRD = 0xFF;
+				PORTD = 0xFF;
+			}
+			else if(*dataPtr == 0x30)
+			{
+				DDRD = 0x00;
+				PORTD = 0x00;				
+			}
+			#endif
+			
+		}
+	uart_flush();
+	}
 
 
 #if 0 //Temporary switch to enable initialization code

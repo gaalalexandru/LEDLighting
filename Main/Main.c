@@ -19,20 +19,20 @@ int main(void)
 {
 	cli();  //Disable interrupts*/
 
-#if USE_DEBUGPIN
+	#if USE_DEBUGPIN
 	DDRC = 0xFF;
 	PORTC = 0x00;
-#endif //DEBUGPIN
-
+	#endif //DEBUGPIN
+	
+	//global timer init
 	timer2_init();
 	
 	#if STATUS_LED
-	timer1_init();
 	INIT_STATUS_LED;
+	timer1_init();
 	#endif  //STATUS_LED
 
 	uart_init(MYUBRR);
-	//uart_send_string("UART init done");
 	
 	#if LIGHTING_FUNCTION
 	pwm_init();
