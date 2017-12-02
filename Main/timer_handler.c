@@ -6,7 +6,7 @@
  */
 
 //Select timer0 (8 bit) to use for PWM generation
-//Select timer1 (16 bit) to toggle status LED
+//Select timer1 (16 bit) to handle status LED
 //Select timer2 (8 bit) to use for millisecond counter & delay functionality
 
 #include <avr/io.h>
@@ -15,6 +15,7 @@
 #include "configuration.h"
 #include "timer_handler.h"
 #include "pwm_handler.h"
+#include "status_led.h"
 
 /************************************************************************/
 /*	                          Global Variables                          */
@@ -41,12 +42,14 @@ void timer1_init(void)
 	//timer1 clock = system clock / 1024
 	TCCR1B = (1 << WGM12)|(1 << CS12)|(1 << CS10);
 	TCNT1 = 0;
-	//3906 clock cycles is equivalent to 0.5 s with the following setup:
+	//781 clock cycles is equivalent to 0.1 s with the following setup:
 	//system clock 8 Mhz
 	//timer1 clock prescaler (divider) = 1024 => timer1 clock 7812.5 Hz
 	//8000000 / 1024 = 7812.5 (1 second)
 	//7812.5 / 2 = 3906.25 (0.5 second)
-	OCR1A = 3906;  //0.5 seconds
+	//7812.5 / 10 = 781.25 (0.1 second)
+	//OCR1A = 3906;  //0.5 seconds
+	OCR1A = 781;  //0.1 seconds
 	TIMSK  |= (1 << OCIE1A);  //Timer1 Output Compare A Match Interrupt Enable
 }
 
@@ -102,7 +105,8 @@ ISR (TIMER0_OVF_vect)
 /* Timer1 Compare Match A Interrupt function*/
 ISR (TIMER1_COMPA_vect)
 {
-	TOGGLE_STATUS_LED;
+	//TOGGLE_STATUS_LED; @AleGaa not valid anymore
+	status_led_update();
 }
 
 /* Timer2 Interrupt function*/

@@ -6,26 +6,20 @@
  */ 
 //Wifi module type: ESP8266
 
-#include <avr/io.h>
-#include <avr/portpins.h>
 #include <string.h>
+#include "esp_wifi_handler.h"
 #include "configuration.h"
 #include "uart_handler.h"
 #include "timer_handler.h"
-#include "esp_wifi_handler.h"
+#include "status_led.h"
 
-// Pin mapping for ESP8266 wifi module reset (RST_ESP) and enable (CH_PD), 
-// pins have to be digital output
+// Pins have to be digital output
 // CH_PD: Chip enable. Keep it on high (3.3V) for normal operation
 // RST_ESP: Reset. Keep it on high (3.3V) for normal operation. Put it on 0V to reset the chip.
-// RST_ESP mapped to MOSI programing pin PB3
-// CH_PD mapped MISO programing pin PB4
-#define RST_ESP_DIR	DDRB |= (1 << PIN3)
-#define	CH_PD_DIR	DDRB |= (1 << PIN4)
-// #define RST_ESP_SET(x)	PORTB |= ((x) << PIN3)
-// #define	CH_PD_SET(x)	PORTB |= ((x) << PIN4)
-#define RST_ESP_SET(x)	((x) ? (PORTB |= (1 << PIN3)) : (PORTB &= ~(1 << PIN3)))
-#define	CH_PD_SET(x)	((x) ? (PORTB |= (1 << PIN4)) : (PORTB &= ~(1 << PIN4)))
+#define RST_ESP_DIR	ESP_RST_DDR |= (1 << ESP_RST_PIN)
+#define	CH_PD_DIR	ESP_ENABLE_DDR |= (1 << ESP_ENABLE_PIN)
+#define RST_ESP_SET(x)	((x) ? (ESP_RST_PORT |= (1 << ESP_RST_PIN)) : (ESP_RST_PORT &= ~(1 << ESP_RST_PIN)))
+#define	CH_PD_SET(x)	((x) ? (ESP_ENABLE_PORT |= (1 << ESP_ENABLE_PIN)) : (ESP_ENABLE_PORT &= ~(1 << ESP_ENABLE_PIN)))
 
 /*#define ESP_DEBUG (0)*/
 #define SERIAL_RESULT_BUFFER_SIZE 101
@@ -56,6 +50,7 @@ char serialResult[SERIAL_RESULT_BUFFER_SIZE];
 volatile uint8_t ESP_CURRENT_STATE = 0;
 volatile uint32_t response_max_timestamp;
 extern volatile uint8_t pwm_width_buffer[CHMAX];
+extern volatile status_led_mode_t status_led_mode;
 
 /************************************************************************/
 /*                      Wifi UART interface functions                   */
@@ -158,6 +153,7 @@ void esp_state_machine(void)
 				{
 					ESP_CURRENT_STATE = ESP_STATE_SETMODE;
 					uart_flush();
+					status_led_mode = wait_for_ip;
 				}	
 			break;
 			case ESP_STATE_SETMODE:
@@ -224,6 +220,7 @@ void esp_state_machine(void)
 					retry_connect++;
 					if(retry_connect > 5)
 					{
+						status_led_mode = error_indication;
 						//AleGaa: In case of unsuccessful connection to AP
 						//reset the system or raise a visual warning
 						//feature to be implemented TODO
@@ -274,6 +271,7 @@ void esp_state_machine(void)
 	//		00 = 0%, 7F = 50%, FF = 100%
 	if( ESP_CURRENT_STATE == ESP_STATE_WAIT_COMMANDS) 
 	{
+		status_led_mode = connected_to_ap;
 		if(check_until_timeout("+IPD,", 5))
 		{
 			currStrPos = strstr(serialResult, "+IPD,");

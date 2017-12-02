@@ -14,6 +14,7 @@
 #include "pwm_handler.h"
 #include "esp_wifi_handler.h"
 #include "manual_control.h"
+#include "status_led.h"
 
 int main(void)
 {
@@ -28,7 +29,7 @@ int main(void)
 	timer2_init();
 	
 	#if STATUS_LED
-	INIT_STATUS_LED;
+	status_led_init();
 	timer1_init();
 	#endif  //STATUS_LED
 

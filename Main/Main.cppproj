@@ -142,6 +142,12 @@
     <Compile Include="pwm_handler.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="status_led.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="status_led.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="timer_handler.h">
       <SubType>compile</SubType>
     </Compile>
