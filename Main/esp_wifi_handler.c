@@ -22,8 +22,10 @@
 // CH_PD mapped MISO programing pin PB4
 #define RST_ESP_DIR	DDRB |= (1 << PIN3)
 #define	CH_PD_DIR	DDRB |= (1 << PIN4)
-#define RST_ESP_SET(x)	PORTB |= ((x) << PIN3)
-#define	CH_PD_SET(x)	PORTB |= ((x) << PIN4)  
+// #define RST_ESP_SET(x)	PORTB |= ((x) << PIN3)
+// #define	CH_PD_SET(x)	PORTB |= ((x) << PIN4)
+#define RST_ESP_SET(x)	((x) ? (PORTB |= (1 << PIN3)) : (PORTB &= ~(1 << PIN3)))
+#define	CH_PD_SET(x)	((x) ? (PORTB |= (1 << PIN4)) : (PORTB &= ~(1 << PIN4)))
 
 /*#define ESP_DEBUG (0)*/
 #define SERIAL_RESULT_BUFFER_SIZE 101
