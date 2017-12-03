@@ -24,15 +24,22 @@
 /*#define ESP_DEBUG (0)*/
 #define SERIAL_RESULT_BUFFER_SIZE 101
 
-//Preliminary ESP states
-#define ESP_STATE_INIT			0
-#define ESP_STATE_SETMODE		1
-#define ESP_STATE_CONNECT		2
-#define ESP_STATE_CHECK_IP		3
-#define ESP_STATE_CHECK_STATUS	4
-#define ESP_STATE_SETMUX		5
-#define ESP_STATE_START_TCP_SERVER	6
-#define ESP_STATE_WAIT_COMMANDS		7
+//Preliminary ESP access point states
+#define ESP_AP_INIT				0
+#define ESP_AP_SETMODE			1
+#define ESP_AP_START_TCP_SERVER	2
+#define ESP_AP_CONFIG_RECEIVE	3
+#define ESP_AP_CONFIG_SUCCESS	4
+
+//Preliminary ESP station states
+#define ESP_STA_INIT				0
+#define ESP_STA_SETMODE				1
+#define ESP_STA_CONNECT				2
+#define ESP_STA_CHECK_IP			3
+#define ESP_STA_CHECK_STATUS		4
+#define ESP_STA_SETMUX				5
+#define ESP_STA_START_TCP_SERVER	6
+#define ESP_STA_WAIT_COMMANDS		7
 
 #define true  1
 #define false 0
@@ -47,7 +54,9 @@
 /*                           Global variables                           */
 /************************************************************************/
 char serialResult[SERIAL_RESULT_BUFFER_SIZE];
-volatile uint8_t esp_current_state = 0;
+volatile uint8_t esp_sta_current_state = 0;
+volatile uint8_t esp_ap_current_state = 0;
+
 volatile uint32_t response_max_timestamp;
 extern volatile uint8_t pwm_width_buffer[CHMAX];
 extern volatile status_led_mode_t status_led_mode;
@@ -160,22 +169,74 @@ void esp_check_current_setup(void)
 	}
 	while (strstr(ipCheckResult,"+CIFSR:STAMAC") == NULL);
 
-	if(strstr(ipCheckResult, "STAIP,\"192.168") != NULL)
-	{
-		//go directly to MUX setting
-		esp_current_state = ESP_STATE_SETMUX;
-	}
-	
 	#if TERMINAL_DEBUG
 	uart_send_string("The IP check result is");
 	uart_send_string(ipCheckResult);
 	uart_newline();
 	#endif //TERMINAL_DEBUG
-
 	uart_flush();
+	
+	if(strstr(ipCheckResult, "STAIP,\"192.168") != NULL)
+	{
+		//go directly to MUX setting
+		esp_sta_current_state = ESP_STA_SETMUX;
+	}
+	else
+	{
+		//start ESP Access Point and get wifi configuration from mobile device
+		esp_wifi_setup();
+	}
+	
 }
 
-
+void esp_wifi_setup(void)
+// this function will setup the ESP Access Point
+// mobile device will connect to this network
+// mobile device will send the SSID and password of home network
+// ESP will send to mobile device the IP of ESP on home network
+{
+	while( esp_ap_current_state < ESP_AP_CONFIG_SUCCESS)
+	{
+		switch (esp_ap_current_state)
+		{
+			case ESP_AP_INIT:
+				//Synchronize ATMEGA8 with ESP8266
+				if(send_command("AT", "OK"))
+				{
+					esp_sta_current_state = ESP_AP_SETMODE;
+					uart_flush();
+				}
+			break;
+			case ESP_AP_SETMODE:
+				if(send_command("AT+CWMODE=2", "OK"))
+				{
+					esp_sta_current_state = ESP_AP_START_TCP_SERVER;
+					uart_flush();
+				}
+			break;
+			case ESP_AP_START_TCP_SERVER:
+				//Start TCP server on a manually selected port
+				if(send_command("AT+CIPSERVER=1,1002", "OK"))
+				{
+					esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
+				}
+				uart_flush();
+			break;
+			case ESP_AP_CONFIG_RECEIVE:
+				//1. mobile device -> ESP: #SSID$PASSWORD%PORT
+				//2. ATMEGA store to separate string the SSID, PASSWORD, PORT
+				//3. ESP connect to SSID with PASSWORD (enable station mode)
+				//4. ESP check IP, if OK go to 5, if not OK, go to 1.
+				//5. ESP -> mobile device: #stationIP
+				//esp_ap_current_state = ESP_AP_CONFIG_SUCCESS
+			break;
+		}
+	}
+	if (esp_ap_current_state == ESP_AP_CONFIG_SUCCESS)
+	{
+		//maybe start state machine???
+	}
+}
 
 void esp_state_machine(void)
 {
@@ -183,20 +244,20 @@ void esp_state_machine(void)
 	char *currStrPos, *dataPtr;
 	uint8_t channel_nr = 0;
 	uint8_t channel_value = 0;
-	while( esp_current_state < ESP_STATE_WAIT_COMMANDS) 
+	while( esp_sta_current_state < ESP_STA_WAIT_COMMANDS) 
 	{
-		switch (esp_current_state)
+		switch (esp_sta_current_state)
 		{
-			case ESP_STATE_INIT:
+			case ESP_STA_INIT:
 				//Synchronize ATMEGA8 with ESP8266
 				if(send_command("AT", "OK"))
 				{
-					esp_current_state = ESP_STATE_SETMODE;
+					esp_sta_current_state = ESP_STA_SETMODE;
 					uart_flush();
 					status_led_mode = wait_for_ip;
 				}	
 			break;
-			case ESP_STATE_SETMODE:
+			case ESP_STA_SETMODE:
 				//Set ESP8266 mode (1 = Station, 2 = Soft Access Point, 3 = Sta + SoftAP)
 				
 				//AleGaa: Since CWMODE is set in flash memory of ESP, might be useful 
@@ -207,11 +268,11 @@ void esp_state_machine(void)
 				
 				if(send_command("AT+CWMODE=3", "OK"))
 				{
-					esp_current_state = ESP_STATE_CONNECT;
+					esp_sta_current_state = ESP_STA_CONNECT;
 					uart_flush();
 				}
 			break;
-			case ESP_STATE_CONNECT:
+			case ESP_STA_CONNECT:
 				//Set Access Point SSID and Password
 				
 				//AleGaa: Currently SSID and password is set manually in code
@@ -230,17 +291,17 @@ void esp_state_machine(void)
 				//if(send_command(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD),"OK"))
 				{
 					//timer_delay_ms(4000);
-					esp_current_state = ESP_STATE_CHECK_IP;
+					esp_sta_current_state = ESP_STA_CHECK_IP;
 				}
 				else 
 				{
 					/*uart_send_string("AT+CWQAP\n\r");*/
 					timer_delay_ms(100);
-					esp_current_state = ESP_STATE_INIT;
+					esp_sta_current_state = ESP_STA_INIT;
 				}
 				uart_flush();
 			break;			
-			case ESP_STATE_CHECK_IP:		
+			case ESP_STA_CHECK_IP:		
 				//Check if ESP received IP from AP
 				//if(send_command("AT+CIFSR","+CIFSR:STAIP,\"0.0.0.0\""))
 				if(send_command("AT+CIFSR","OK"))  
@@ -250,13 +311,13 @@ void esp_state_machine(void)
 				{
 					//IP received, meaning successful connection to AP
 					//uart_send_string("Connected to AP");
-					esp_current_state = ESP_STATE_CHECK_STATUS;
+					esp_sta_current_state = ESP_STA_CHECK_STATUS;
 				}
 				else
 				{
 					//This will be true if no IP received from AP
 					//Did not connect to AP
-					esp_current_state = ESP_STATE_CONNECT;  //Reset state to connect
+					esp_sta_current_state = ESP_STA_CONNECT;  //Reset state to connect
 					retry_connect++;
 					if(retry_connect > 5)
 					{
@@ -268,24 +329,24 @@ void esp_state_machine(void)
 				}
 				uart_flush();
 			break;		
-			case ESP_STATE_CHECK_STATUS:
+			case ESP_STA_CHECK_STATUS:
 				//Check ESP Status (status = 2, means IP received)
 				if(send_command("AT+CIPSTATUS", "OK"))
 				{
-					esp_current_state = ESP_STATE_SETMUX;
+					esp_sta_current_state = ESP_STA_SETMUX;
 				}
 				uart_flush();
 			break;
-			case ESP_STATE_SETMUX:
+			case ESP_STA_SETMUX:
 				//Set ESP to accept multiple connections
 				if(send_command("AT+CIPMUX=1", "OK"))
 				{
 					uart_send_string(serialResult);
-					esp_current_state = ESP_STATE_START_TCP_SERVER;
+					esp_sta_current_state = ESP_STA_START_TCP_SERVER;
 				}
 				uart_flush();
 			break;
-			case ESP_STATE_START_TCP_SERVER:
+			case ESP_STA_START_TCP_SERVER:
 				//Start TCP server on a manually selected port
 				//AleGaa TCP port currently is set manually in code
 				//for future versions this will be inputed via serial interface
@@ -293,13 +354,13 @@ void esp_state_machine(void)
 				//feature to be implemented TODO
 				if(send_command("AT+CIPSERVER=1,1001", "OK"))
 				{
-					esp_current_state = ESP_STATE_WAIT_COMMANDS;
+					esp_sta_current_state = ESP_STA_WAIT_COMMANDS;
 				}
 				uart_flush();
-				//AleGaa maybe move timer0 and pwm initialization here, so that the CPU load during ESP setup is lower
+				//AleGaa TODO maybe move timer0 and pwm initialization here, so that the CPU load during ESP setup is lower
 			break;
-		}  //end of switch (esp_current_state)
-	}  //end of while( esp_current_state < ESP_STATE_WAIT_COMMANDS)
+		}  //end of switch (esp_sta_current_state)
+	}  //end of while( esp_sta_current_state < ESP_STATE_WAIT_COMMANDS)
 	
 	//Command format sent through TCP:
 	//"+IPD,x,y:$H#DD"
@@ -310,7 +371,7 @@ void esp_state_machine(void)
 	//# = start of PWM duty cycle value character(s)
 	//DD = HEX value of PWM duty cycle for selected channel
 	//		00 = 0%, 7F = 50%, FF = 100%
-	if( esp_current_state == ESP_STATE_WAIT_COMMANDS) 
+	if( esp_sta_current_state == ESP_STA_WAIT_COMMANDS) 
 	{
 		status_led_mode = connected_to_ap;
 		if(check_until_timeout("+IPD,", 5))
@@ -330,47 +391,4 @@ void esp_state_machine(void)
 		}
 	uart_flush();
 	}
-
-
-#if 0 //Temporary switch to enable initialization code
-
-		if(send_command("AT", "OK")) {
-			STATUS_LED_ON;
-		}
-		uart_flush();
-		
-		if(send_command("AT+CWMODE=1", "OK")) {
-			STATUS_LED_OFF;
-		}
-		uart_flush();
-		uart_send_string(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD));	
-			
-		if(check_until_timeout("OK",5))
-		{
-		} else {
-			RST_ESP_SET(1);
-			RST_ESP_SET(0);
-			RST_ESP_SET(1);
-			uart_send_string("AT+RST\r\n");
-			timer_delay_ms(15000);
-		}
-		/*if(send_command(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD),"OK")) {
-			STATUS_LED_ON;
-		}*/
-		uart_flush();		
-		if(send_command("AT+CIFSR","OK")) {
-			STATUS_LED_ON;
-		}
-		uart_flush();		
-		if(send_command("AT+CWJAP?","OK")) {
-			STATUS_LED_ON;
-		}
-		uart_flush();
-		if(send_command("AT+CIPSTATUS","OK")) {
-			STATUS_LED_OFF;
-		}
-		uart_flush();	
-		
-#endif
-
 }

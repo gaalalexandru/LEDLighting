@@ -36,8 +36,9 @@
 #define TERMINAL_DEBUG		(1) //enable the print of various information to terminal
 								
 //wifi & esp configurations
-#define WIFI_SSID_PASSWORD		"\"UPC5C34B5E\",\"jsUsje5vd4ue\"\r\n"
-//#define WIFI_SSID_PASSWORD		"\"My ASUS\",\"Zuzuk1man\"\r\n"
+#define WIFI_SSID_PASSWORD		"\"UPC5C34B5E\",\"jsUsje5vd4ue\"\r\n"		//Othoni wifi
+//#define WIFI_SSID_PASSWORD		"\"ASUS_X008D\",\"86c423b622c8\"\r\n"			//Timi telcsi
+//#define WIFI_SSID_PASSWORD		"\"My ASUS\",\"Zuzuk1man\"\r\n"				//Sanyi telcsi
 // Pin mapping for ESP8266 wifi module reset (RST_ESP) and enable (CH_PD)
 // RST_ESP mapped to MOSI programing pin PB3
 // CH_PD mapped MISO programing pin PB4
