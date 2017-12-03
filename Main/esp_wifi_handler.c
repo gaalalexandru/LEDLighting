@@ -47,7 +47,7 @@
 /*                           Global variables                           */
 /************************************************************************/
 char serialResult[SERIAL_RESULT_BUFFER_SIZE];
-volatile uint8_t ESP_CURRENT_STATE = 0;
+volatile uint8_t esp_current_state = 0;
 volatile uint32_t response_max_timestamp;
 extern volatile uint8_t pwm_width_buffer[CHMAX];
 extern volatile status_led_mode_t status_led_mode;
@@ -125,6 +125,10 @@ static uint8_t send_command(char *sentCommand, char *compareWord)
 	return check_until_timeout(compareWord, 1);
 }
 
+/************************************************************************/
+/*                        Wifi handling functions                       */
+/************************************************************************/
+
 void esp_init(void)
 {
 	//Set the direction and value of ESP 8266 Reset (RST) and Enable (CH_PD) pin
@@ -136,6 +140,42 @@ void esp_init(void)
 	CH_PD_SET(1);
 	timer_delay_ms(4000);  //Wait 4 second until ESP is started and finishes standard junk output :)
 }
+void esp_check_current_setup(void)
+{
+	char ipCheckResult[SERIAL_RESULT_BUFFER_SIZE];
+	uint8_t i = 0;  // index for buffer, and character counter.
+	
+	memset(ipCheckResult, 0, SERIAL_RESULT_BUFFER_SIZE-1);
+	
+	uart_flush();
+	uart_send_string("AT+CIFSR\r\n");
+	timer_delay_ms(100);
+	do
+	{
+		ipCheckResult[i] = uart_get_char();
+		if((ipCheckResult[i] != '\n')  && (ipCheckResult[i] != '\r'))
+		{
+			i++;			
+		}
+	}
+	while (strstr(ipCheckResult,"+CIFSR:STAMAC") == NULL);
+
+	if(strstr(ipCheckResult, "STAIP,\"192.168") != NULL)
+	{
+		//go directly to MUX setting
+		esp_current_state = ESP_STATE_SETMUX;
+	}
+	
+	#if TERMINAL_DEBUG
+	uart_send_string("The IP check result is");
+	uart_send_string(ipCheckResult);
+	uart_newline();
+	#endif //TERMINAL_DEBUG
+
+	uart_flush();
+}
+
+
 
 void esp_state_machine(void)
 {
@@ -143,15 +183,15 @@ void esp_state_machine(void)
 	char *currStrPos, *dataPtr;
 	uint8_t channel_nr = 0;
 	uint8_t channel_value = 0;
-	while( ESP_CURRENT_STATE < ESP_STATE_WAIT_COMMANDS) 
+	while( esp_current_state < ESP_STATE_WAIT_COMMANDS) 
 	{
-		switch (ESP_CURRENT_STATE)
+		switch (esp_current_state)
 		{
 			case ESP_STATE_INIT:
 				//Synchronize ATMEGA8 with ESP8266
 				if(send_command("AT", "OK"))
 				{
-					ESP_CURRENT_STATE = ESP_STATE_SETMODE;
+					esp_current_state = ESP_STATE_SETMODE;
 					uart_flush();
 					status_led_mode = wait_for_ip;
 				}	
@@ -167,7 +207,7 @@ void esp_state_machine(void)
 				
 				if(send_command("AT+CWMODE=3", "OK"))
 				{
-					ESP_CURRENT_STATE = ESP_STATE_CONNECT;
+					esp_current_state = ESP_STATE_CONNECT;
 					uart_flush();
 				}
 			break;
@@ -181,7 +221,7 @@ void esp_state_machine(void)
 				//uint8_t *wifi_credentials = strcat(WIFI_SSID,WIFI_PASSWORD);			
 				//if(send_command(strcat("AT+CWMODE=3",wifi_credentials), "OK"))
 				
-				//send_command not used, because it's necessary to wait a little
+				//send_command not used, because it's necessary to wait a little longer
 				//before checking for OK response
 				uart_flush();
 				uart_send_string(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD));
@@ -190,13 +230,13 @@ void esp_state_machine(void)
 				//if(send_command(strcat("AT+CWJAP=",WIFI_SSID_PASSWORD),"OK"))
 				{
 					//timer_delay_ms(4000);
-					ESP_CURRENT_STATE = ESP_STATE_CHECK_IP;
+					esp_current_state = ESP_STATE_CHECK_IP;
 				}
 				else 
 				{
 					/*uart_send_string("AT+CWQAP\n\r");*/
 					timer_delay_ms(100);
-					ESP_CURRENT_STATE = ESP_STATE_INIT;
+					esp_current_state = ESP_STATE_INIT;
 				}
 				uart_flush();
 			break;			
@@ -210,13 +250,13 @@ void esp_state_machine(void)
 				{
 					//IP received, meaning successful connection to AP
 					//uart_send_string("Connected to AP");
-					ESP_CURRENT_STATE = ESP_STATE_CHECK_STATUS;
+					esp_current_state = ESP_STATE_CHECK_STATUS;
 				}
 				else
 				{
 					//This will be true if no IP received from AP
 					//Did not connect to AP
-					ESP_CURRENT_STATE = ESP_STATE_CONNECT;  //Reset state to connect
+					esp_current_state = ESP_STATE_CONNECT;  //Reset state to connect
 					retry_connect++;
 					if(retry_connect > 5)
 					{
@@ -232,7 +272,7 @@ void esp_state_machine(void)
 				//Check ESP Status (status = 2, means IP received)
 				if(send_command("AT+CIPSTATUS", "OK"))
 				{
-					ESP_CURRENT_STATE = ESP_STATE_SETMUX;
+					esp_current_state = ESP_STATE_SETMUX;
 				}
 				uart_flush();
 			break;
@@ -240,7 +280,8 @@ void esp_state_machine(void)
 				//Set ESP to accept multiple connections
 				if(send_command("AT+CIPMUX=1", "OK"))
 				{
-					ESP_CURRENT_STATE = ESP_STATE_START_TCP_SERVER;
+					uart_send_string(serialResult);
+					esp_current_state = ESP_STATE_START_TCP_SERVER;
 				}
 				uart_flush();
 			break;
@@ -252,13 +293,13 @@ void esp_state_machine(void)
 				//feature to be implemented TODO
 				if(send_command("AT+CIPSERVER=1,1001", "OK"))
 				{
-					ESP_CURRENT_STATE = ESP_STATE_WAIT_COMMANDS;
+					esp_current_state = ESP_STATE_WAIT_COMMANDS;
 				}
 				uart_flush();
 				//AleGaa maybe move timer0 and pwm initialization here, so that the CPU load during ESP setup is lower
 			break;
-		}  //end of switch (ESP_CURRENT_STATE)
-	}  //end of while( ESP_CURRENT_STATE < ESP_STATE_WAIT_COMMANDS)
+		}  //end of switch (esp_current_state)
+	}  //end of while( esp_current_state < ESP_STATE_WAIT_COMMANDS)
 	
 	//Command format sent through TCP:
 	//"+IPD,x,y:$H#DD"
@@ -269,7 +310,7 @@ void esp_state_machine(void)
 	//# = start of PWM duty cycle value character(s)
 	//DD = HEX value of PWM duty cycle for selected channel
 	//		00 = 0%, 7F = 50%, FF = 100%
-	if( ESP_CURRENT_STATE == ESP_STATE_WAIT_COMMANDS) 
+	if( esp_current_state == ESP_STATE_WAIT_COMMANDS) 
 	{
 		status_led_mode = connected_to_ap;
 		if(check_until_timeout("+IPD,", 5))
@@ -285,21 +326,7 @@ void esp_state_machine(void)
 			dataPtr = currStrPos + 1;
 			channel_value = *dataPtr;  //save the target duty cycle value
 			
-			pwm_width_buffer[channel_nr] = channel_value; // update pwm_width buffer
-			
-			#if 0					
-			if(*dataPtr == 0x31)
-			{
-				DDRD = 0xFF;
-				PORTD = 0xFF;
-			}
-			else if(*dataPtr == 0x30)
-			{
-				DDRD = 0x00;
-				PORTD = 0x00;				
-			}
-			#endif
-			
+			pwm_width_buffer[channel_nr] = channel_value; // update pwm_width buffer		
 		}
 	uart_flush();
 	}

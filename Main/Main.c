@@ -32,8 +32,12 @@ int main(void)
 	status_led_init();
 	timer1_init();
 	#endif  //STATUS_LED
-
+	
+	#if ESP_MANUAL_CONTROL
+	//do not initialize UART on ATMEGA8
+	#else
 	uart_init(MYUBRR);
+	#endif //ESP_MANUAL_CONTROL
 	
 	#if LIGHTING_FUNCTION
 	pwm_init();
@@ -44,6 +48,7 @@ int main(void)
 	
 	#if WIRELESS_CONTROL
 	esp_init();
+	esp_check_current_setup();
 	#endif //WIRELESS_CONTROL
 	
     while(1)
@@ -53,7 +58,11 @@ int main(void)
 		#endif  //TERMINAL_CONTROL
 		
 		#if WIRELESS_CONTROL
-		esp_state_machine();
+			#if ESP_MANUAL_CONTROL
+			//do nothing with ESP	
+			#else
+			esp_state_machine();
+			#endif //ESP_MANUAL_CONTROL
 		#endif //WIRELESS_CONTROL
 		
 		#if 0

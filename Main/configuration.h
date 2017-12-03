@@ -24,17 +24,20 @@
 
 //pwm configurations
 #define CHMAX 6 //maximum number of pwm channels
-#define PWMDEFAULT 0x01  //default pulse width
+#define PWMDEFAULT 0x00  //default pulse width
 
-
+#define ESP_MANUAL_CONTROL	(0) //allows manually to send AT commands to ESP via terminal
 #define WIRELESS_CONTROL	(1)	//allow pwm channels to be controlled via wifi interface
 #define LIGHTING_FUNCTION	(1)	//enable timer0 and pwm channel outputs
 #define STATUS_LED			(1)	//enable timer1 and status LED init & toggle
 #define USE_DEBUGPIN		(0)	//enable free pin to be used for debugging / measurements
 #define TERMINAL_CONTROL	(0)	//allow PWM channels to be manually controlled via serial terminal
 								//message format is #xYY, x = channel number, YY 8bit hex value of pulse width
+#define TERMINAL_DEBUG		(1) //enable the print of various information to terminal
+								
 //wifi & esp configurations
 #define WIFI_SSID_PASSWORD		"\"UPC5C34B5E\",\"jsUsje5vd4ue\"\r\n"
+//#define WIFI_SSID_PASSWORD		"\"My ASUS\",\"Zuzuk1man\"\r\n"
 // Pin mapping for ESP8266 wifi module reset (RST_ESP) and enable (CH_PD)
 // RST_ESP mapped to MOSI programing pin PB3
 // CH_PD mapped MISO programing pin PB4

@@ -10,5 +10,6 @@
 
 void esp_init(void);
 void esp_state_machine(void);
+void esp_check_current_setup(void);
 
 #endif /* WIFI_HANDLER_H_ */

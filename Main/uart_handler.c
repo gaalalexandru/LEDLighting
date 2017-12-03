@@ -149,7 +149,7 @@ uint16_t uart_get_string(char *buffer, uint16_t bufsize)
 	//For example: UART_rbuflen() could be 2, and the string could be empty (or not).
 	//Note that mixing UART_gets() and UART_getc() could break the autodetection of CR,LF,CRLF.
 	
-	int i = 0;  // index for buffer, and character counter.
+	uint8_t i = 0;  // index for buffer, and character counter.
 	uint8_t eol = false;  // flag for end-of-line
 	
 	if (bufsize > 0)
