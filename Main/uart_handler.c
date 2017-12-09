@@ -9,11 +9,32 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 #include <stdbool.h>
+#include "configuration.h"
 #include "uart_handler.h"
 
 #define TXMASK (TX_BUFFER_SIZE-1)
 #define RXMASK (RX_BUFFER_SIZE-1)
 
+//controller adaptations for ATMEGA48
+#if ATMEGA48
+#define UCSRA	UCSR0A
+#define UCSRB	UCSR0B
+#define UCSRC	UCSR0C
+
+#define UBRRH	UBRR0H
+#define UBRRL	UBRR0L
+#define U2X		U2X0
+
+#define RXEN	RXEN0
+#define TXEN	TXEN0
+#define RXCIE	RXCIE0
+#define UDRIE	UDRIE0
+#define RXC		RXC0
+#define UDR		UDR0
+
+#define USART_RXC_vect USART_RX_vect
+
+#endif
 /************************************************************************/
 /*                           Global variables                           */
 /************************************************************************/
@@ -37,31 +58,28 @@ static volatile unsigned char cr_flag;  // added for auto detect CR,LF,CRLF
 /* UART Initialization function*/
 void uart_init(uint32_t ubrr)
 {
-	//cli();  //Disable interrupts*/
-	
-	// turn everything off
-	UCSRA = 0x00;  // writing zero to UCSRnA is probably not needed.
-	UCSRB = 0x00;  // disable everything in UCSRnB
-	
-	//Set baud rate
-	UBRRH = (uint8_t)(ubrr>>8);
+	UCSRA = 0x00; // turn everything off
+	UCSRB = 0x00;
+	UCSRC = 0x00;
+	UBRRH = (uint8_t)(ubrr>>8);//Set baud rate
 	UBRRL = (uint8_t)ubrr;
-	
 	#if SET_U2X
-		UCSRA = (1<<U2X);
+	UCSRA = (1<<U2X);
 	#endif
-	
 	//Receive and transmit enabled, receive complete interrupt enabled (USART_RXC)
 	UCSRB = (1<<RXEN)|(1<<TXEN)|(1<<RXCIE);
-	
+		
+	#if ATMEGA48
+	//8 data bits, 1 stop bit, UART operation, no parity
+	UCSR0C = (1<<UCSZ01)|(1<<UCSZ00);
+	#elif ATMEGA8
 	// Set the most used serial settings: asynchrone, no parity, 8 bit, 1 stop bit.
 	// The ATmega8 uses an URSEL bit, which is not present on newer chips.
 	UCSRC = (1<<URSEL)|(1<<UCSZ1)|(1<<UCSZ0);
+	#endif
 	
 	cr_flag = false;  // set default, no 'cr' detected yet.
 	tx_in = tx_out = rx_in = rx_out = 0;  // set all buffer indices to zero.
-
-	//sei(); // enable interrupts.
 }
 
 /************************************************************************/
@@ -133,7 +151,12 @@ uint8_t uart_get_char( void )
 	while (uart_rx_buflen() == 0) {}
 	data = rxbuf[rx_out & RXMASK];
 	rx_out++;
-	return(data);
+	return data;
+	
+	#if DONT_USE_ISR_UART
+	while ( !(UCSRA & (1<<RXC)) ) {}
+	return(UDR);
+	#endif
 }
 
 /* UART Get String function */

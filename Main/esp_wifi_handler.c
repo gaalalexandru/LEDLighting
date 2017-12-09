@@ -147,7 +147,7 @@ void esp_init(void)
 	RST_ESP_SET(0);
 	RST_ESP_SET(1);
 	CH_PD_SET(1);
-	timer_delay_ms(4000);  //Wait 4 second until ESP is started and finishes standard junk output :)
+	timer_delay_ms(6000);  //Wait 4 second until ESP is started and finishes standard junk output :)
 }
 void esp_check_current_setup(void)
 {
@@ -184,7 +184,7 @@ void esp_check_current_setup(void)
 	else
 	{
 		//start ESP Access Point and get wifi configuration from mobile device
-		esp_wifi_setup();
+		//esp_wifi_setup();
 	}
 	
 }
