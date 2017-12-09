@@ -184,7 +184,7 @@ void esp_check_current_setup(void)
 	else
 	{
 		//start ESP Access Point and get wifi configuration from mobile device
-		//esp_wifi_setup();
+		esp_wifi_setup();
 	}
 	
 }

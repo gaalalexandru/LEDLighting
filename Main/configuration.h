@@ -11,10 +11,20 @@
 #include <avr/io.h>
 #include <avr/portpins.h>
 
+//controller selection
+#if defined (__AVR_ATmega48PB__)
+ #define ATMEGA48 (1)
+ #define ATMEGA8	(0)
+#elif defined (__AVR_ATmega8__)
+ #define ATMEGA48 (0)
+ #define ATMEGA8	(1)
+# endif
+
 //uart configurations
 #define FOSC 8000000// Clock Speed
 #define BAUD 38400 // Old value only for terminal control: 9600
 #define SET_U2X (0)
+#define DONT_USE_ISR_UART (0)
 
 #if SET_U2X
 	#define MYUBRR ((FOSC/(8*BAUD))-1)
@@ -40,6 +50,16 @@
 //#define WIFI_SSID_PASSWORD		"\"ASUS_X008D\",\"86c423b622c8\"\r\n"			//Timi telcsi
 //#define WIFI_SSID_PASSWORD		"\"My ASUS\",\"Zuzuk1man\"\r\n"				//Sanyi telcsi
 // Pin mapping for ESP8266 wifi module reset (RST_ESP) and enable (CH_PD)
+#if ATMEGA48
+// RST_ESP mapped to MOSI programing pin PE2
+// CH_PD mapped MISO programing pin PE3
+#define ESP_RST_PORT	PORTE
+#define ESP_RST_DDR		DDRE
+#define ESP_RST_PIN		PIN2
+#define ESP_ENABLE_PORT	PORTE
+#define ESP_ENABLE_DDR	DDRE
+#define ESP_ENABLE_PIN	PIN3
+#elif ATMEGA8
 // RST_ESP mapped to MOSI programing pin PB3
 // CH_PD mapped MISO programing pin PB4
 #define ESP_RST_PORT	PORTB
@@ -48,6 +68,7 @@
 #define ESP_ENABLE_PORT	PORTB
 #define ESP_ENABLE_DDR	DDRB
 #define ESP_ENABLE_PIN	PIN4
+#endif
 
 //status LED configuration
 #define STATUS_LED_DDR		DDRD

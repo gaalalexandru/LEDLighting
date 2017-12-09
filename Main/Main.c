@@ -34,7 +34,7 @@ int main(void)
 	#endif  //STATUS_LED
 	
 	#if ESP_MANUAL_CONTROL
-	//do not initialize UART on ATMEGA8
+	//do not initialize UART on ATMEGA
 	#else
 	uart_init(MYUBRR);
 	#endif //ESP_MANUAL_CONTROL
