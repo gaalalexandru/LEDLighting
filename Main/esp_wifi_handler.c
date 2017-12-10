@@ -54,8 +54,12 @@
 /*                           Global variables                           */
 /************************************************************************/
 char serialResult[SERIAL_RESULT_BUFFER_SIZE];
+
 volatile uint8_t esp_sta_current_state = 0;
 volatile uint8_t esp_ap_current_state = 0;
+
+char esp_wifi_ssid[ESP_SSID_MAX_LENGTH];
+char esp_wifi_pass[ESP_PASS_MAX_LENGTH];
 
 volatile uint32_t response_max_timestamp;
 extern volatile uint8_t pwm_width_buffer[CHMAX];
@@ -137,6 +141,61 @@ static uint8_t send_command(char *sentCommand, char *compareWord)
 /************************************************************************/
 /*                        Wifi handling functions                       */
 /************************************************************************/
+static void get_ssid(char *data_buffer)
+{
+	//AleGaa: TODO check and return error if SSID string is too long
+	uint8_t index = 0;
+	memset(esp_wifi_ssid,0,ESP_SSID_MAX_LENGTH);
+	if(*data_buffer == '%')
+	{
+		//valid startpoint
+		esp_wifi_ssid[0] = '\"'; //starting quote
+		index=1;
+		while ((*data_buffer != '&') && (index < (ESP_SSID_MAX_LENGTH-2)))
+		//look for SSID end char ("&") or max length
+		{
+			esp_wifi_ssid[index] = (*data_buffer);
+			index++;
+			data_buffer++;
+		}
+		esp_wifi_ssid[index] = '\"'; //ending quote
+		index++;
+		esp_wifi_ssid[index] = '\0'; //string terminator
+	}
+	/*else
+	{
+		//invalid startpoint
+		*esp_wifi_ssid="ERROR_SSID";
+	}*/
+}
+
+static void get_password(char *data_buffer)
+{
+	//AleGaa: TODO check and return error if password string is too long
+	uint8_t index = 0;
+	memset(esp_wifi_pass,0,ESP_PASS_MAX_LENGTH);
+	if(*data_buffer == '&')
+	{
+		//valid startpoint
+		esp_wifi_pass[0] = '\"'; //starting quote
+		index=1;
+		while ((*data_buffer != '*') && (index < (ESP_PASS_MAX_LENGTH-2))) 
+		//look for password end char or max length
+		{
+			esp_wifi_pass[index] = (*data_buffer);
+			index++;
+			data_buffer++;
+		}
+		esp_wifi_pass[index] = '\"'; //ending quote
+		index++;
+		esp_wifi_pass[index] = '\0'; //string terminator
+	}
+	/*else
+	{
+		//invalid startpoint
+		*esp_wifi_pass="ERROR_PASS";
+	}*/
+}
 
 void esp_init(void)
 {
@@ -195,6 +254,7 @@ void esp_wifi_setup(void)
 // mobile device will send the SSID and password of home network
 // ESP will send to mobile device the IP of ESP on home network
 {
+	char *currStrPos = NULL;
 	while( esp_ap_current_state < ESP_AP_CONFIG_SUCCESS)
 	{
 		switch (esp_ap_current_state)
@@ -203,7 +263,9 @@ void esp_wifi_setup(void)
 				//Synchronize ATMEGA8 with ESP8266
 				if(send_command("AT", "OK"))
 				{
-					esp_sta_current_state = ESP_AP_SETMODE;
+					//esp_sta_current_state = ESP_AP_SETMODE;
+					//AleGaa: skip setmode command for now.
+					esp_sta_current_state = ESP_AP_START_TCP_SERVER;
 					uart_flush();
 				}
 			break;
@@ -216,7 +278,8 @@ void esp_wifi_setup(void)
 			break;
 			case ESP_AP_START_TCP_SERVER:
 				//Start TCP server on a manually selected port
-				if(send_command("AT+CIPSERVER=1,1002", "OK"))
+				//if(send_command("AT+CIPSERVER=1,1002", "OK"))
+				if(send_command(strcat("AT+CIPSERVER=1,",ESP_AP_PORT), "OK"))
 				{
 					esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
 				}
@@ -229,6 +292,17 @@ void esp_wifi_setup(void)
 				//4. ESP check IP, if OK go to 5, if not OK, go to 1.
 				//5. ESP -> mobile device: #stationIP
 				//esp_ap_current_state = ESP_AP_CONFIG_SUCCESS
+				if(check_until_timeout("+IPD,", 5))
+				{
+					currStrPos = strstr(serialResult, "+IPD,");
+					currStrPos += 5;
+					currStrPos = strchr(currStrPos, '%');  //find start of SSID
+					get_ssid(currStrPos);
+					
+					currStrPos = strchr(currStrPos, '&');  //find start of duty cycle byte
+					get_password(currStrPos);
+				}
+				uart_flush();
 			break;
 		}
 	}
@@ -383,7 +457,7 @@ void esp_state_machine(void)
 			channel_nr = (((uint8_t)*dataPtr) - 0x30);  //save the target channel nr.*/
 			//channel_nr = (*dataPtr);  //save the target channel nr.*/
 						
-			currStrPos = strchr(currStrPos, '#');  //find start of channel byte		
+			currStrPos = strchr(currStrPos, '#');  //find start of duty cycle byte		
 			dataPtr = currStrPos + 1;
 			channel_value = *dataPtr;  //save the target duty cycle value
 			
