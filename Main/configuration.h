@@ -37,9 +37,9 @@
 //////////////////////////////////////////////////////////////////////////
 //							UART CONFIGURATIONS							//
 //////////////////////////////////////////////////////////////////////////
-#define FOSC 8000000// Clock Speed
+#define FOSC 4000000// Clock Speed
 #define BAUD 38400 // Old value only for terminal control: 9600
-#define SET_U2X (0)
+#define SET_U2X (1)
 #define DONT_USE_ISR_UART (0)
 #if SET_U2X
 	#define MYUBRR ((FOSC/(8*BAUD))-1)
@@ -56,7 +56,8 @@
 //////////////////////////////////////////////////////////////////////////
 //						WIFI & ESP CONFIGURATIONS						//
 //////////////////////////////////////////////////////////////////////////					
-#define WIFI_SSID_PASSWORD		"\"UPC5C34B5E\",\"jsUsje5vd4ue\"\r\n"
+//#define WIFI_SSID_PASSWORD		"\"UPC5C34B5E\",\"jsUsje5vd4ue\"\r\n"
+#define WIFI_SSID_PASSWORD	"\"AndroidAP\",\"stargate\"\r\n"
 //#define WIFI_SSID_PASSWORD	"\"ASUS_X008D\",\"86c423b622c8\"\r\n"
 //#define WIFI_SSID_PASSWORD	"\"My ASUS\",\"Zuzuk1man\"\r\n"
 #define ESP_AP_PORT		"1002"
