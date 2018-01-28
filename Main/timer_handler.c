@@ -29,16 +29,14 @@ volatile uint32_t timer_system_ms = 0;  //system startup counter in milliseconds
 /* Timer0 - 8bit Initialization function*/
 void timer0_init(void)
 {
-	TCNT0 = 0;
+	TCNT0 = 127;  //to half the timer interval
 	#if ATMEGA48
-	TCCR0B = (1 << CS00);  //no prescaler (timer0 clock = system clock)
+	TCCR0B = (1 << CS01);  //prescaler 8 (timer0 clock = system clock / 8)
 	TIMSK0  |= (1 << TOIE0);  //Timer0 Overflow Interrupt Enable
 	#elif ATMEGA8
-	TCCR0 = (1 << CS00);  //no prescaler (timer0 clock = system clock)
+	TCCR0 = (1 << CS01);  //prescaler 8 (timer0 clock = system clock / 8)
 	TIMSK  |= (1 << TOIE0);  //Timer0 Overflow Interrupt Enable
 	#endif
-	
-	
 }
 
 /* Timer1 - 16bit Initialization function*/
@@ -49,14 +47,21 @@ void timer1_init(void)
 	//timer1 clock = system clock / 1024
 	TCCR1B = (1 << WGM12)|(1 << CS12)|(1 << CS10);
 	TCNT1 = 0;
-	//781 clock cycles is equivalent to 0.1 s with the following setup:
-	//system clock 8 Mhz
-	//timer1 clock prescaler (divider) = 1024 => timer1 clock 7812.5 Hz
-	//8000000 / 1024 = 7812.5 (1 second)
-	//7812.5 / 2 = 3906.25 (0.5 second)
-	//7812.5 / 10 = 781.25 (0.1 second)
-	//OCR1A = 3906;  //0.5 seconds
-	OCR1A = 781;  //0.1 seconds
+	//XYZ clock cycles is equivalent to 0.1 s with the following setup:
+	
+	//A: system clock 8 Mhz
+		//timer1 clock prescaler (divider) = 1024 => timer1 clock 7812.5 Hz
+		//8000000 / 1024 = 7812.5 (1 second)
+		//7812.5 / 2 = 3906.25 (0.5 second)
+		//7812.5 / 10 = 781.25 (0.1 second)
+			
+	//B: system clock 4 Mhz
+		//timer1 clock prescaler (divider) = 1024 => timer1 clock 3906.25 Hz
+		//4000000 / 1024 = 3906.25 (1 second)
+		//3906 / 2 = 1953 (0.5 second)
+		//3906 / 10 = 390 (0.1 second)
+		
+	OCR1A = 390;  //0.1 seconds
 	#if ATMEGA48
 	TIMSK1 |= (1 << OCIE1A);  //Timer1 Output Compare A Match Interrupt Enable
 	#elif ATMEGA8
@@ -71,17 +76,27 @@ void timer2_init(void)
 	//timer2 clock = system clock / 64
 	#if ATMEGA48
 	TCCR2A = (1 << WGM21);
-	TCCR2B = (1 << CS22);
+	//TCCR2B = (1 << CS22);  //for 64 prescaler
+	TCCR2B = (1 << CS21)|(1 << CS20);  //for 32 prescaler
 	#elif ATMEGA8
-	TCCR2 = (1 << WGM21)|(1 << CS22);
+	TCCR2 = (1 << WGM21)|(1 << CS21)|(1 << CS20);
 	#endif
-	
 	TCNT2 = 0;
-	//125 clock cycles is equivalent to 1 ms with the following setup:
-	//system clock 8 MHz
-	//timer1 clock prescaler (divider) = 64 => timer1 clock 125 kHz
-	//8000000 / 64 = 125000 (1 second)
-	// 125000 / 1000 = 125 (1 millisecond)
+	
+	//XYZ clock cycles is equivalent to 1 ms with the following setup:
+
+	//A: system clock 8 MHz
+		//timer2 clock prescaler (divider) = 64 => timer1 clock 125 kHz
+		//8000000 / 64 = 125000 (1 second)
+		// 125000 / 1000 = 125 (1 millisecond)
+		
+	//B: system clock 4 MHz
+		//timer2 clock prescaler (divider) = 32 => timer1 clock 125 kHz
+		//4000000 / 32 = 125000 (1 second)
+		// 125000 / 1000 = 125 (1 millisecond)
+		
+
+			
 	#if ATMEGA48
 	OCR2A = 125;
 	TIMSK2  |= (1 << OCIE2A);  //Enable Timer1 output compare trigger OCIE2A	
@@ -121,6 +136,7 @@ inline uint32_t timer_ms(void)
 /* Timer0 Overflow Interrupt function*/
 ISR (TIMER0_OVF_vect)
 {
+	TCNT0 = 127;
 	pwm_update();
 }
 

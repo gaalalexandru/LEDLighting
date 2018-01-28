@@ -45,7 +45,7 @@ int main(void)
 	#endif  //LIGHTING_FUNCTIN
 	
 	sei();  // enable global interrupts
-	
+	uart_send_string("\r\n interrupts enabled\r\n ");
 	#if WIRELESS_CONTROL
 	esp_init();
 	esp_check_current_setup();

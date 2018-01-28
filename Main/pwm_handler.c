@@ -80,14 +80,22 @@ void pwm_init(void)
 }
 
 void pwm_update(void)
-{
+{	
+	#if USE_DEBUGPIN
+	PORTC = 0xFF;
+	#endif //USE_DEBUGPIN
 	//static uint8_t softcount = 0xFF;
 	static uint8_t softcount = 0x00;
 	/* increment modulo 256 counter and update
 	the pwm_width values only when counter = 0.
 	verbose code for speed, do not replace with for...
 	last element should equal CHMAX - 1 */
-	softcount++;
+	//softcount = (softcount + 1) % PWM_DUTY_CYCLE_RESOLUTION;  //slower method
+	softcount++;  // faster method with if condition
+	if(softcount >= PWM_DUTY_CYCLE_RESOLUTION)
+	{
+		softcount = 0;
+	}
 	if (softcount == 0)
 	{
 		pwm_width[0] = pwm_width_buffer[0]; 
@@ -108,20 +116,25 @@ void pwm_update(void)
 		PWM_SET_CH4((pwm_width[4] > 0));
 		PWM_SET_CH5((pwm_width[5] > 0));					
 	}
-	
-	// clear port pin on pwm_width match
-	if (pwm_width[0] == softcount)
+	else
+	{
+		// clear port pin on pwm_width match
+		if (pwm_width[0] == softcount)
 		PWM_SET_CH0(false);
-	if (pwm_width[1] == softcount)
+		if (pwm_width[1] == softcount)
 		PWM_SET_CH1(false);
-	if (pwm_width[2] == softcount)
+		if (pwm_width[2] == softcount)
 		PWM_SET_CH2(false);
-	if (pwm_width[3] == softcount)
+		if (pwm_width[3] == softcount)
 		PWM_SET_CH3(false);
-	if (pwm_width[4] == softcount)
+		if (pwm_width[4] == softcount)
 		PWM_SET_CH4(false);
-	if (pwm_width[5] == softcount)
-		PWM_SET_CH5(false);
+		if (pwm_width[5] == softcount)
+		PWM_SET_CH5(false);	
+	}
+	#if USE_DEBUGPIN
+	PORTC = 0x00;
+	#endif //USE_DEBUGPIN
 }
 
 				

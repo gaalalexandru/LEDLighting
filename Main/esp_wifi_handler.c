@@ -26,10 +26,11 @@
 
 //Preliminary ESP access point states
 #define ESP_AP_INIT				0
-#define ESP_AP_SETMODE			1
+#define ESP_AP_SETMUX			1
 #define ESP_AP_START_TCP_SERVER	2
 #define ESP_AP_CONFIG_RECEIVE	3
-#define ESP_AP_CONFIG_SUCCESS	4
+#define ESP_AP_CONFIG_CHECK		4
+#define ESP_AP_CONFIG_SUCCESS	5
 
 //Preliminary ESP station states
 #define ESP_STA_INIT				0
@@ -143,6 +144,7 @@ static uint8_t send_command(char *sentCommand, char *compareWord)
 /************************************************************************/
 static void get_ssid(char *data_buffer)
 {
+	#if 0
 	//AleGaa: TODO check and return error if SSID string is too long
 	uint8_t index = 0;
 	memset(esp_wifi_ssid,0,ESP_SSID_MAX_LENGTH);
@@ -167,10 +169,12 @@ static void get_ssid(char *data_buffer)
 		//invalid startpoint
 		*esp_wifi_ssid="ERROR_SSID";
 	}*/
+	#endif
 }
 
 static void get_password(char *data_buffer)
 {
+	#if 0
 	//AleGaa: TODO check and return error if password string is too long
 	uint8_t index = 0;
 	memset(esp_wifi_pass,0,ESP_PASS_MAX_LENGTH);
@@ -195,6 +199,31 @@ static void get_password(char *data_buffer)
 		//invalid startpoint
 		*esp_wifi_pass="ERROR_PASS";
 	}*/
+	#endif
+}
+
+static void combine_ssid_pass(void)
+{
+	#if 0
+	char* return_string = NULL;
+	while(*esp_wifi_ssid)
+	{
+		*return_string = *esp_wifi_ssid;
+		return_string++;
+		//esp_wifi_ssid++;
+	}
+	//"\"My ASUS\",\"Zuzuk1man\"\r\n"
+	*return_string = ',';  //add ssid and password separating ,
+	return_string++;
+	while(*esp_wifi_pass)
+	{
+		*return_string = *esp_wifi_pass;
+		return_string++;
+		//esp_wifi_pass++;
+	}
+	*return_string = '\0'; //string terminator
+	return return_string;
+	#endif
 }
 
 void esp_init(void)
@@ -226,7 +255,7 @@ void esp_check_current_setup(void)
 			i++;			
 		}
 	}
-	while (strstr(ipCheckResult,"+CIFSR:STAMAC") == NULL);
+	while (strstr(ipCheckResult,"STAMAC") == NULL);
 
 	#if TERMINAL_DEBUG
 	uart_send_string("The IP check result is");
@@ -235,14 +264,35 @@ void esp_check_current_setup(void)
 	#endif //TERMINAL_DEBUG
 	uart_flush();
 	
-	if(strstr(ipCheckResult, "STAIP,\"192.168") != NULL)
+	/*
+	To check if we are already connected to a wifi network:
+	Check if string contains station IP nr. 0.0.0.0.
+	If string doesn't contain "STAIP,\"0.0.", pointer of strstr().
+	will be NULL and the condition will be true.
+	In this case we can proceed to MUX setting and TCP server start.
+	If string contains "STAIP,\"0.0.", pointer off strstr() not NULL,
+	the condition will be false and will start the routines for new
+	wifi network setup.
+	*/
+	if(strstr(ipCheckResult, "STAIP,\"0.0.") == NULL)  //esp station has IP
 	{
-		//go directly to MUX setting
+		
+		//Go directly to MUX setting
 		esp_sta_current_state = ESP_STA_SETMUX;
+		#if TERMINAL_DEBUG
+		uart_send_string("Got IP");
+		uart_newline();
+		uart_flush();
+		#endif //TERMINAL_DEBUG
 	}
-	else
+	else  //esp station has no IP
 	{
-		//start ESP Access Point and get wifi configuration from mobile device
+		//Start ESP Access Point and get wifi configuration from mobile device
+		#if TERMINAL_DEBUG
+		uart_send_string("No IP");
+		uart_newline();
+		uart_flush();
+		#endif //TERMINAL_DEBUG
 		esp_wifi_setup();
 	}
 	
@@ -265,17 +315,19 @@ void esp_wifi_setup(void)
 				{
 					//esp_sta_current_state = ESP_AP_SETMODE;
 					//AleGaa: skip setmode command for now.
-					esp_sta_current_state = ESP_AP_START_TCP_SERVER;
-					uart_flush();
+					esp_ap_current_state = ESP_AP_SETMUX;
 				}
+				uart_flush();
 			break;
-			case ESP_AP_SETMODE:
-				if(send_command("AT+CWMODE=2", "OK"))
-				{
-					esp_sta_current_state = ESP_AP_START_TCP_SERVER;
-					uart_flush();
-				}
-			break;
+			case ESP_AP_SETMUX:
+			//Set ESP to accept multiple connections
+			if(send_command("AT+CIPMUX=1", "OK"))
+			{
+				//why was this here? todo: uart_send_string(serialResult);
+				esp_ap_current_state = ESP_AP_START_TCP_SERVER;
+			}
+			uart_flush();
+			break;			
 			case ESP_AP_START_TCP_SERVER:
 				//Start TCP server on a manually selected port
 				//if(send_command("AT+CIPSERVER=1,1002", "OK"))
@@ -286,32 +338,51 @@ void esp_wifi_setup(void)
 				uart_flush();
 			break;
 			case ESP_AP_CONFIG_RECEIVE:
-				//1. mobile device -> ESP: #SSID$PASSWORD%PORT
-				//2. ATMEGA store to separate string the SSID, PASSWORD, PORT
-				//3. ESP connect to SSID with PASSWORD (enable station mode)
-				//4. ESP check IP, if OK go to 5, if not OK, go to 1.
-				//5. ESP -> mobile device: #stationIP
-				//esp_ap_current_state = ESP_AP_CONFIG_SUCCESS
+				/*
+				1. mobile device -> ESP: #\"SSID\",\"PASSWORD"\
+				2a. CURRENT VERSION: ATMEGA store to 1 big string the SSID, PASSWORD in the req format
+				2b. FEATURE VERSION (TO DO): ATMEGA store to separate string the SSID, PASSWORD, PORT
+				3. ESP connect to SSID with PASSWORD (enable station mode)
+				4. ESP check IP, if OK go to 5, if not OK, go to 1.
+				5. ESP -> mobile device: #stationIP
+				*/
+				esp_ap_current_state = ESP_AP_CONFIG_SUCCESS;
 				if(check_until_timeout("+IPD,", 5))
 				{
 					currStrPos = strstr(serialResult, "+IPD,");
 					currStrPos += 5;
-					currStrPos = strchr(currStrPos, '%');  //find start of SSID
-					get_ssid(currStrPos);
-					
-					currStrPos = strchr(currStrPos, '&');  //find start of duty cycle byte
-					get_password(currStrPos);
+					currStrPos = strchr(currStrPos, '#');  //find start of SSID
+					currStrPos++;
+					#if TERMINAL_DEBUG
+					//uart_send_string(currStrPos);
+					//uart_newline();
+					//uart_flush();
+					#endif //TERMINAL_DEBUG
+					//get_ssid(currStrPos);  //not yet
+					//get_password(currStrPos); //not yet
+					esp_ap_current_state = ESP_AP_CONFIG_CHECK;
 				}
 				uart_flush();
+			break;
+			case ESP_AP_CONFIG_CHECK:
+				uart_send_string(strcat("AT+CWJAP=",currStrPos));
+				uart_newline();
+				timer_delay_ms(1000);
+				if(check_until_timeout("OK",5))
+			uart_flush();
+			esp_ap_current_state = ESP_AP_CONFIG_SUCCESS;
 			break;
 		}
 	}
 	if (esp_ap_current_state == ESP_AP_CONFIG_SUCCESS)
 	{
 		//maybe start state machine???
+		esp_sta_current_state = ESP_STA_START_TCP_SERVER;
 	}
 }
+/*
 
+*/
 void esp_state_machine(void)
 {
 	static uint8_t retry_connect = 0;

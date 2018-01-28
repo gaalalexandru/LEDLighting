@@ -40,8 +40,10 @@
 // The buffer is used for speed. Characters are send in an interrupt routine.
 // If more characters are send than the buffer could contain, the functions waits for a place in the buffer.
 // The receiving of characters does not handle overflow very well, make the buffers large enough.
-#define TX_BUFFER_SIZE 32
-#define RX_BUFFER_SIZE 64
+// #define TX_BUFFER_SIZE 32
+// #define RX_BUFFER_SIZE 64
+#define TX_BUFFER_SIZE 64
+#define RX_BUFFER_SIZE 128
 
 #define uart_newline() uart_send_char(CR); uart_send_char(LF);
 
