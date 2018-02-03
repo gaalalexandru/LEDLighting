@@ -42,6 +42,8 @@
 #define ESP_STA_START_TCP_SERVER	6
 #define ESP_STA_WAIT_COMMANDS		7
 
+#define ESP_CHECK_STATUS (0)
+
 #define true  1
 #define false 0
 
@@ -142,89 +144,7 @@ static uint8_t send_command(char *sentCommand, char *compareWord)
 /************************************************************************/
 /*                        Wifi handling functions                       */
 /************************************************************************/
-static void get_ssid(char *data_buffer)
-{
-	#if 0
-	//AleGaa: TODO check and return error if SSID string is too long
-	uint8_t index = 0;
-	memset(esp_wifi_ssid,0,ESP_SSID_MAX_LENGTH);
-	if(*data_buffer == '%')
-	{
-		//valid startpoint
-		esp_wifi_ssid[0] = '\"'; //starting quote
-		index=1;
-		while ((*data_buffer != '&') && (index < (ESP_SSID_MAX_LENGTH-2)))
-		//look for SSID end char ("&") or max length
-		{
-			esp_wifi_ssid[index] = (*data_buffer);
-			index++;
-			data_buffer++;
-		}
-		esp_wifi_ssid[index] = '\"'; //ending quote
-		index++;
-		esp_wifi_ssid[index] = '\0'; //string terminator
-	}
-	/*else
-	{
-		//invalid startpoint
-		*esp_wifi_ssid="ERROR_SSID";
-	}*/
-	#endif
-}
 
-static void get_password(char *data_buffer)
-{
-	#if 0
-	//AleGaa: TODO check and return error if password string is too long
-	uint8_t index = 0;
-	memset(esp_wifi_pass,0,ESP_PASS_MAX_LENGTH);
-	if(*data_buffer == '&')
-	{
-		//valid startpoint
-		esp_wifi_pass[0] = '\"'; //starting quote
-		index=1;
-		while ((*data_buffer != '*') && (index < (ESP_PASS_MAX_LENGTH-2))) 
-		//look for password end char or max length
-		{
-			esp_wifi_pass[index] = (*data_buffer);
-			index++;
-			data_buffer++;
-		}
-		esp_wifi_pass[index] = '\"'; //ending quote
-		index++;
-		esp_wifi_pass[index] = '\0'; //string terminator
-	}
-	/*else
-	{
-		//invalid startpoint
-		*esp_wifi_pass="ERROR_PASS";
-	}*/
-	#endif
-}
-
-static void combine_ssid_pass(void)
-{
-	#if 0
-	char* return_string = NULL;
-	while(*esp_wifi_ssid)
-	{
-		*return_string = *esp_wifi_ssid;
-		return_string++;
-		//esp_wifi_ssid++;
-	}
-	//"\"My ASUS\",\"Zuzuk1man\"\r\n"
-	*return_string = ',';  //add ssid and password separating ,
-	return_string++;
-	while(*esp_wifi_pass)
-	{
-		*return_string = *esp_wifi_pass;
-		return_string++;
-		//esp_wifi_pass++;
-	}
-	*return_string = '\0'; //string terminator
-	return return_string;
-	#endif
-}
 
 void esp_init(void)
 {
@@ -235,13 +155,19 @@ void esp_init(void)
 	RST_ESP_SET(0);
 	RST_ESP_SET(1);
 	CH_PD_SET(1);
-	timer_delay_ms(6000);  //Wait 4 second until ESP is started and finishes standard junk output :)
+	timer_delay_ms(6000);  //Wait 6 second until ESP is started and finishes standard junk output :)
+	//Set ESP8266 mode (1 = Station, 2 = Soft Access Point, 3 = Sta + SoftAP)
+	//AleGaa: Since CWMODE is set in flash memory of ESP, might be useful
+	//to set the mode only at "manufacturing" via serial terminal
+	//and do not set it on runtime.
+	//this could make the initialization slightly simpler and faster
+	//feature to be implemented TODO
+	while(!send_command("AT+CWMODE=3", "OK")) {};  //setup AccessPoint and STAtion mode
 }
 void esp_check_current_setup(void)
 {
 	char ipCheckResult[SERIAL_RESULT_BUFFER_SIZE];
 	uint8_t i = 0;  // index for buffer, and character counter.
-	
 	memset(ipCheckResult, 0, SERIAL_RESULT_BUFFER_SIZE-1);
 	
 	uart_flush();
@@ -278,12 +204,13 @@ void esp_check_current_setup(void)
 	{
 		
 		//Go directly to MUX setting
-		esp_sta_current_state = ESP_STA_SETMUX;
+
 		#if TERMINAL_DEBUG
 		uart_send_string("Got IP");
 		uart_newline();
 		uart_flush();
 		#endif //TERMINAL_DEBUG
+		esp_sta_current_state = ESP_STA_SETMUX;
 	}
 	else  //esp station has no IP
 	{
@@ -303,8 +230,13 @@ void esp_wifi_setup(void)
 // mobile device will connect to this network
 // mobile device will send the SSID and password of home network
 // ESP will send to mobile device the IP of ESP on home network
+
 {
+	char ipCheckResult[SERIAL_RESULT_BUFFER_SIZE];
+	uint8_t i = 0;  // index for buffer, and character counter.
+	memset(ipCheckResult, 0, SERIAL_RESULT_BUFFER_SIZE-1);
 	char *currStrPos = NULL;
+	
 	while( esp_ap_current_state < ESP_AP_CONFIG_SUCCESS)
 	{
 		switch (esp_ap_current_state)
@@ -346,7 +278,6 @@ void esp_wifi_setup(void)
 				4. ESP check IP, if OK go to 5, if not OK, go to 1.
 				5. ESP -> mobile device: #stationIP
 				*/
-				esp_ap_current_state = ESP_AP_CONFIG_SUCCESS;
 				if(check_until_timeout("+IPD,", 5))
 				{
 					currStrPos = strstr(serialResult, "+IPD,");
@@ -354,9 +285,10 @@ void esp_wifi_setup(void)
 					currStrPos = strchr(currStrPos, '#');  //find start of SSID
 					currStrPos++;
 					#if TERMINAL_DEBUG
-					//uart_send_string(currStrPos);
-					//uart_newline();
-					//uart_flush();
+					uart_send_string("Received data:");
+					uart_send_string(currStrPos);
+					uart_newline();
+					uart_flush();
 					#endif //TERMINAL_DEBUG
 					//get_ssid(currStrPos);  //not yet
 					//get_password(currStrPos); //not yet
@@ -365,12 +297,41 @@ void esp_wifi_setup(void)
 				uart_flush();
 			break;
 			case ESP_AP_CONFIG_CHECK:
+				//connect to new SSID
+				uart_flush();
 				uart_send_string(strcat("AT+CWJAP=",currStrPos));
 				uart_newline();
 				timer_delay_ms(1000);
 				if(check_until_timeout("OK",5))
+				{
+					uart_send_string("oki");
+					//check the IP
+					uart_flush();
+					uart_send_string("AT+CIFSR\r\n");
+					timer_delay_ms(100);
+					do
+					{
+						ipCheckResult[i] = uart_get_char();
+						if((ipCheckResult[i] != '\n')  && (ipCheckResult[i] != '\r'))
+						{
+							i++;
+						}
+					}
+					while (strstr(ipCheckResult,"STAMAC") == NULL);
+					if(strstr(ipCheckResult, "STAIP,\"0.0.") == NULL)  //esp station has IP
+					{
+						currStrPos = strstr(serialResult, "STAIP,\"");
+						currStrPos++;
+// 						uart_send_string("sta ip:");
+// 						uart_send_string(currStrPos);
+						esp_ap_current_state = ESP_AP_CONFIG_SUCCESS;
+					}
+					else
+					{
+						esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
+					}
+				}
 			uart_flush();
-			esp_ap_current_state = ESP_AP_CONFIG_SUCCESS;
 			break;
 		}
 	}
@@ -397,26 +358,20 @@ void esp_state_machine(void)
 				//Synchronize ATMEGA8 with ESP8266
 				if(send_command("AT", "OK"))
 				{
-					esp_sta_current_state = ESP_STA_SETMODE;
+					esp_sta_current_state = ESP_STA_CONNECT/*ESP_STA_SETMODE*/;
 					uart_flush();
 					status_led_mode = wait_for_ip;
 				}	
 			break;
-			case ESP_STA_SETMODE:
-				//Set ESP8266 mode (1 = Station, 2 = Soft Access Point, 3 = Sta + SoftAP)
-				
-				//AleGaa: Since CWMODE is set in flash memory of ESP, might be useful 
-				//to set the mode only at "manufacturing" via serial terminal
-				//and do not set it on runtime.
-				//this could make the State Machine slightly simpler
-				//feature to be implemented TODO
+			/*case ESP_STA_SETMODE:
+
 				
 				if(send_command("AT+CWMODE=3", "OK"))
 				{
 					esp_sta_current_state = ESP_STA_CONNECT;
 					uart_flush();
 				}
-			break;
+			break;*/
 			case ESP_STA_CONNECT:
 				//Set Access Point SSID and Password
 				
@@ -438,6 +393,7 @@ void esp_state_machine(void)
 					//timer_delay_ms(4000);
 					esp_sta_current_state = ESP_STA_CHECK_IP;
 				}
+				
 				else 
 				{
 					/*uart_send_string("AT+CWQAP\n\r");*/
@@ -455,8 +411,11 @@ void esp_state_machine(void)
 				//and re-think logic of IF - True - Else statement
 				{
 					//IP received, meaning successful connection to AP
-					//uart_send_string("Connected to AP");
+					#if ESP_CHECK_STATUS
 					esp_sta_current_state = ESP_STA_CHECK_STATUS;
+					#else
+					esp_sta_current_state = ESP_STA_SETMUX;
+					#endif  //ESP_CHECK_STATUS
 				}
 				else
 				{
@@ -473,7 +432,8 @@ void esp_state_machine(void)
 					}					
 				}
 				uart_flush();
-			break;		
+			break;
+			#if ESP_CHECK_STATUS
 			case ESP_STA_CHECK_STATUS:
 				//Check ESP Status (status = 2, means IP received)
 				if(send_command("AT+CIPSTATUS", "OK"))
@@ -482,6 +442,7 @@ void esp_state_machine(void)
 				}
 				uart_flush();
 			break;
+			#endif  //ESP_CHECK_STATUS
 			case ESP_STA_SETMUX:
 				//Set ESP to accept multiple connections
 				if(send_command("AT+CIPMUX=1", "OK"))
