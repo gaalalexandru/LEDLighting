@@ -43,6 +43,7 @@
 #define ESP_STA_WAIT_COMMANDS		7
 
 #define ESP_CHECK_STATUS (0)
+#define ESP_FORCE_WIFI_SETUP (1)
 
 #define true  1
 #define false 0
@@ -190,6 +191,9 @@ void esp_check_current_setup(void)
 	#endif //TERMINAL_DEBUG
 	uart_flush();
 	
+#if ESP_FORCE_WIFI_SETUP  //for development of wifi setup functionalities
+	esp_wifi_setup();
+#else  //normal run
 	/*
 	To check if we are already connected to a wifi network:
 	Check if string contains station IP nr. 0.0.0.0.
@@ -222,7 +226,7 @@ void esp_check_current_setup(void)
 		#endif //TERMINAL_DEBUG
 		esp_wifi_setup();
 	}
-	
+#endif //ESP_FORCE_WIFI_SETUP	
 }
 
 void esp_wifi_setup(void)
@@ -265,6 +269,8 @@ void esp_wifi_setup(void)
 				//if(send_command("AT+CIPSERVER=1,1002", "OK"))
 				if(send_command(strcat("AT+CIPSERVER=1,",ESP_AP_PORT), "OK"))
 				{
+					send_command("AT+CIPDINFO=1", "OK");
+					send_command("AT+CIPSTO=7000", "OK");
 					esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
 				}
 				uart_flush();
@@ -281,7 +287,7 @@ void esp_wifi_setup(void)
 				if(check_until_timeout("+IPD,", 5))
 				{
 					currStrPos = strstr(serialResult, "+IPD,");
-					currStrPos += 5;
+					currStrPos += 7;
 					currStrPos = strchr(currStrPos, '#');  //find start of SSID
 					currStrPos++;
 					#if TERMINAL_DEBUG

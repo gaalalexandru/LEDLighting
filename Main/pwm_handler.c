@@ -94,9 +94,9 @@ void pwm_update(void)
 	softcount++;  // faster method with if condition
 	if(softcount >= PWM_DUTY_CYCLE_RESOLUTION)
 	{
-		softcount = 0;
+		softcount = PWM_DUTY_CYCLE_RESET_VALUE;
 	}
-	if (softcount == 0)
+	if (softcount == PWM_DUTY_CYCLE_RESET_VALUE)
 	{
 		pwm_width[0] = pwm_width_buffer[0]; 
 		pwm_width[1] = pwm_width_buffer[1];

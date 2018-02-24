@@ -35,6 +35,7 @@ int main(void)
 	
 	#if ESP_MANUAL_CONTROL
 	//do not initialize UART on ATMEGA
+	esp_init(); //turn on ESP pins
 	#else
 	uart_init(MYUBRR);
 	#endif //ESP_MANUAL_CONTROL
