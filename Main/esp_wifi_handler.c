@@ -183,12 +183,6 @@ void esp_check_current_setup(void)
 		}
 	}
 	while (strstr(ipCheckResult,"STAMAC") == NULL);
-
-	#if TERMINAL_DEBUG
-	uart_send_string("The IP check result is");
-	uart_send_string(ipCheckResult);
-	uart_newline();
-	#endif //TERMINAL_DEBUG
 	uart_flush();
 	
 #if ESP_FORCE_WIFI_SETUP  //for development of wifi setup functionalities
@@ -206,24 +200,13 @@ void esp_check_current_setup(void)
 	*/
 	if(strstr(ipCheckResult, "STAIP,\"0.0.") == NULL)  //esp station has IP
 	{
-		
+		//Start ESP State Machine
 		//Go directly to MUX setting
-
-		#if TERMINAL_DEBUG
-		uart_send_string("Got IP");
-		uart_newline();
-		uart_flush();
-		#endif //TERMINAL_DEBUG
 		esp_sta_current_state = ESP_STA_SETMUX;
 	}
 	else  //esp station has no IP
 	{
 		//Start ESP Access Point and get wifi configuration from mobile device
-		#if TERMINAL_DEBUG
-		uart_send_string("No IP");
-		uart_newline();
-		uart_flush();
-		#endif //TERMINAL_DEBUG
 		esp_wifi_setup();
 	}
 #endif //ESP_FORCE_WIFI_SETUP	
@@ -247,17 +230,17 @@ void esp_wifi_setup(void)
 
 	char workString[32];
 	memset(workString, 0, 32);
-	char clientIPString[24];
-	memset(clientIPString, 0, 24);
-	uint8_t ipIndex = 0;
+	
+	char clientIPString[15];
+	memset(clientIPString, 0, 15);
+
+	char stationIPString[15];
+	memset(stationIPString, 0, 15);
 	
 	char *stationIP_begin = NULL;
 	char *stationIP_end = NULL;
 	char *clientIP_begin = NULL;
 	char *clientIP_end = NULL;
-	char *clientPORT_begin = NULL;
-	char *clientPORT_end = NULL;
-	char *iterator = NULL;
 		
 	while( esp_ap_current_state < ESP_AP_CONFIG_SUCCESS)
 	{
@@ -308,43 +291,20 @@ void esp_wifi_setup(void)
 					//+IPD,0,25,192.168.4.2,50511:#"FELINVEST","1234qwe$"
 					currStrPos = strstr(serialResult, "+IPD,");  //find start of response
 					currStrPos += 7;  //jump to "," before message length
-					clientIP_begin = strchr(currStrPos, 0x2c);	// jump to next ','
+					clientIP_begin = strchr(currStrPos, 0x2c);	//jump to next ','
 					clientIP_begin++;  //jump to start of IP
-					clientIP_end = strchr(clientIP_begin, 0x2c);	// jump to next ','
-					clientPORT_begin = clientIP_end + 1;
-					clientPORT_end = strchr(clientPORT_begin, 0x3a);	// jump to next ':'
+					clientIP_end = strchr(clientIP_begin, 0x2c);	//jump to next ','
 					currStrPos = strchr(currStrPos, '#');  //find start of SSID
 					currStrPos++;
-					
-					memset(workString, 0, 32);
 					strcpy(workString, currStrPos);
-						
-					memset(clientIPString, 0, 24);
-					
+									
 					#if 1	// VERSION 1: clientIpString contains the IP of the client
-					ipIndex = 0;
-					for(iterator = clientIP_begin; iterator != clientIP_end; ++iterator)
-					{
-						clientIPString[ipIndex++] = *iterator;
-					}
+					//No reason to save incoming data port
+					//The client TCP port always changes
+					//and is different from TCP server port
+					strncpy(clientIPString, clientIP_begin, (uint8_t)(clientIP_end-clientIP_begin));
 					#endif	// VERSION 1
-					
-					#if 0  //do not send back to device
-					send_command("AT+CIPSEND=0,17", "OK");
-					timer_delay_ms(500);
-					uart_send_string("trying to connect");
-					uart_newline();
-					uart_flush();
-					timer_delay_ms(2000);
-					#endif
-					#if TERMINAL_DEBUG
-					uart_send_string("Received data:");
-					uart_send_string(currStrPos);
-					uart_newline();
-					uart_flush();
-					#endif //TERMINAL_DEBUG
-					//get_ssid(currStrPos);  //not yet
-					//get_password(currStrPos); //not yet
+
 					esp_ap_current_state = ESP_AP_CONFIG_CHECK;
 				}
 				uart_flush();
@@ -376,7 +336,7 @@ void esp_wifi_setup(void)
 					}				
 				} while ((OK == 0) && (FAIL == 0));
 				
-				// if esp succeded in connecting to ssid and pass provided
+				// if esp succeeded in connecting to ssid and pass provided
 				if(OK == 1)
 				{
 					timer_delay_ms(1000);
@@ -397,45 +357,28 @@ void esp_wifi_setup(void)
 						stationIP_begin = strstr(ipCheckResult, "STAIP");
 						stationIP_begin += 7;
 						stationIP_end = strchr(stationIP_begin, 0x22);	// ' " '
-						uart_flush();
-						
-						// If connection was closed, create tcp server
-						// command format: AT+CIPSTART=ID,"TCP","IP/DNS",PORT
+						uart_flush();				
+						strncpy(stationIPString, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
+
+						//If connection was closed, create TCP client connection, 
+						//TCP server must run on the other device
+						//command format: AT+CIPSTART=ID,"TCP","192.168.100.123",1003
 						if (CLOSED == 1)
-						{
-							#if 1	// VERSION 1: clientIpString contains the IP of the client
-							uart_send_string("AT+CIPSTART=1,\"TCP\",\"");/*1,*/
-							//uart_send_udec(atoi(clientID));
-							//uart_send_string("\"TCP\",");
-							//uart_send_char(0x22);	// ' " ' quotations char
+						{					
+							//uart_send_string(strcat("AT+CIPSTART=0,\"TCP\",\"",clientIPString));  //client connection id = 0
+							uart_send_string("AT+CIPSTART=0,\"TCP\",\"");
 							uart_send_string(clientIPString);
-							uart_send_string("\",1003");
-							//uart_send_char(0x22);	// ' " ' quotations char
-							//uart_send_char(0x2c);	// ','
-							/*
-							uart_send_char(0x31);	// 1
-							uart_send_char(0x30);	// 0
-							uart_send_char(0x30);	// 0
-							uart_send_char(0x32);	// 2
-							*/
-							#endif	// VERSION 1
-// 						uart_send_string(currStrPos);
+							//uart_send_string(strcat("\",",ESP_CFG_DEV_PORT));
+							uart_send_string("\",");
+							uart_send_string(ESP_CFG_DEV_PORT);
 							uart_newline();
 							timer_delay_ms(2000);
 						}
 						
 						// send to client the station IP
-						uart_send_string("AT+CIPSEND=1,13");
-						uart_newline();
-						timer_delay_ms(1500);
-						
-						uart_send_char('\n');
-						for(iterator = stationIP_begin; iterator != stationIP_end; ++iterator)
-						{
-							uart_send_char(*(iterator+1));
-						}
-						uart_newline();
-						
+						send_command("AT+CIPSEND=0,15", "OK");
+						uart_send_string(stationIPString);		
+						uart_newline();	
 						timer_delay_ms(3000);
 						esp_ap_current_state = ESP_AP_CONFIG_SUCCESS;
 					}
