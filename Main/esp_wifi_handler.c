@@ -241,6 +241,24 @@ void esp_wifi_setup(void)
 	memset(ipCheckResult, 0, SERIAL_RESULT_BUFFER_SIZE-1);
 	char *currStrPos = NULL;
 	
+	uint8_t OK = 0;
+	uint8_t FAIL = 0;
+	uint8_t CLOSED = 0;
+
+	char workString[32];
+	memset(workString, 0, 32);
+	char clientIPString[24];
+	memset(clientIPString, 0, 24);
+	uint8_t ipIndex = 0;
+	
+	char *stationIP_begin = NULL;
+	char *stationIP_end = NULL;
+	char *clientIP_begin = NULL;
+	char *clientIP_end = NULL;
+	char *clientPORT_begin = NULL;
+	char *clientPORT_end = NULL;
+	char *iterator = NULL;
+		
 	while( esp_ap_current_state < ESP_AP_CONFIG_SUCCESS)
 	{
 		switch (esp_ap_current_state)
@@ -256,13 +274,13 @@ void esp_wifi_setup(void)
 				uart_flush();
 			break;
 			case ESP_AP_SETMUX:
-			//Set ESP to accept multiple connections
-			if(send_command("AT+CIPMUX=1", "OK"))
-			{
-				//why was this here? todo: uart_send_string(serialResult);
-				esp_ap_current_state = ESP_AP_START_TCP_SERVER;
-			}
-			uart_flush();
+				//Set ESP to accept multiple connections
+				if(send_command("AT+CIPMUX=1", "OK"))
+				{
+					//why was this here? todo: uart_send_string(serialResult);
+					esp_ap_current_state = ESP_AP_START_TCP_SERVER;
+				}
+				uart_flush();
 			break;			
 			case ESP_AP_START_TCP_SERVER:
 				//Start TCP server on a manually selected port
@@ -270,7 +288,7 @@ void esp_wifi_setup(void)
 				if(send_command(strcat("AT+CIPSERVER=1,",ESP_AP_PORT), "OK"))
 				{
 					send_command("AT+CIPDINFO=1", "OK");
-					send_command("AT+CIPSTO=7000", "OK");
+					send_command("AT+CIPSTO=15", "OK");
 					esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
 				}
 				uart_flush();
@@ -286,10 +304,39 @@ void esp_wifi_setup(void)
 				*/
 				if(check_until_timeout("+IPD,", 5))
 				{
-					currStrPos = strstr(serialResult, "+IPD,");
-					currStrPos += 7;
+					//response example:
+					//+IPD,0,25,192.168.4.2,50511:#"FELINVEST","1234qwe$"
+					currStrPos = strstr(serialResult, "+IPD,");  //find start of response
+					currStrPos += 7;  //jump to "," before message length
+					clientIP_begin = strchr(currStrPos, 0x2c);	// jump to next ','
+					clientIP_begin++;  //jump to start of IP
+					clientIP_end = strchr(clientIP_begin, 0x2c);	// jump to next ','
+					clientPORT_begin = clientIP_end + 1;
+					clientPORT_end = strchr(clientPORT_begin, 0x3a);	// jump to next ':'
 					currStrPos = strchr(currStrPos, '#');  //find start of SSID
 					currStrPos++;
+					
+					memset(workString, 0, 32);
+					strcpy(workString, currStrPos);
+						
+					memset(clientIPString, 0, 24);
+					
+					#if 1	// VERSION 1: clientIpString contains the IP of the client
+					ipIndex = 0;
+					for(iterator = clientIP_begin; iterator != clientIP_end; ++iterator)
+					{
+						clientIPString[ipIndex++] = *iterator;
+					}
+					#endif	// VERSION 1
+					
+					#if 0  //do not send back to device
+					send_command("AT+CIPSEND=0,17", "OK");
+					timer_delay_ms(500);
+					uart_send_string("trying to connect");
+					uart_newline();
+					uart_flush();
+					timer_delay_ms(2000);
+					#endif
 					#if TERMINAL_DEBUG
 					uart_send_string("Received data:");
 					uart_send_string(currStrPos);
@@ -305,13 +352,34 @@ void esp_wifi_setup(void)
 			case ESP_AP_CONFIG_CHECK:
 				//connect to new SSID
 				uart_flush();
-				uart_send_string(strcat("AT+CWJAP=",currStrPos));
+				timer_delay_ms(1000);
+				uart_send_string("AT+CWJAP=");
+				uart_send_string(workString);
 				uart_newline();
 				timer_delay_ms(1000);
-				if(check_until_timeout("OK",5))
+				
+				do
 				{
-					uart_send_string("oki");
-					//check the IP
+					memset(workString, 0, 32);
+					uart_get_string(workString, 32);
+					if(strstr(workString, "CLOSED") != NULL)
+					{
+						CLOSED = 1;
+					}
+					if(strstr(workString, "OK") != NULL)
+					{
+						OK = 1;
+					}
+					else if(strstr(workString, "FAIL") != NULL)
+					{
+						FAIL = 1;
+					}				
+				} while ((OK == 0) && (FAIL == 0));
+				
+				// if esp succeded in connecting to ssid and pass provided
+				if(OK == 1)
+				{
+					timer_delay_ms(1000);
 					uart_flush();
 					uart_send_string("AT+CIFSR\r\n");
 					timer_delay_ms(100);
@@ -326,10 +394,49 @@ void esp_wifi_setup(void)
 					while (strstr(ipCheckResult,"STAMAC") == NULL);
 					if(strstr(ipCheckResult, "STAIP,\"0.0.") == NULL)  //esp station has IP
 					{
-						currStrPos = strstr(serialResult, "STAIP,\"");
-						currStrPos++;
-// 						uart_send_string("sta ip:");
+						stationIP_begin = strstr(ipCheckResult, "STAIP");
+						stationIP_begin += 7;
+						stationIP_end = strchr(stationIP_begin, 0x22);	// ' " '
+						uart_flush();
+						
+						// If connection was closed, create tcp server
+						// command format: AT+CIPSTART=ID,"TCP","IP/DNS",PORT
+						if (CLOSED == 1)
+						{
+							#if 1	// VERSION 1: clientIpString contains the IP of the client
+							uart_send_string("AT+CIPSTART=1,\"TCP\",\"");/*1,*/
+							//uart_send_udec(atoi(clientID));
+							//uart_send_string("\"TCP\",");
+							//uart_send_char(0x22);	// ' " ' quotations char
+							uart_send_string(clientIPString);
+							uart_send_string("\",1003");
+							//uart_send_char(0x22);	// ' " ' quotations char
+							//uart_send_char(0x2c);	// ','
+							/*
+							uart_send_char(0x31);	// 1
+							uart_send_char(0x30);	// 0
+							uart_send_char(0x30);	// 0
+							uart_send_char(0x32);	// 2
+							*/
+							#endif	// VERSION 1
 // 						uart_send_string(currStrPos);
+							uart_newline();
+							timer_delay_ms(2000);
+						}
+						
+						// send to client the station IP
+						uart_send_string("AT+CIPSEND=1,13");
+						uart_newline();
+						timer_delay_ms(1500);
+						
+						uart_send_char('\n');
+						for(iterator = stationIP_begin; iterator != stationIP_end; ++iterator)
+						{
+							uart_send_char(*(iterator+1));
+						}
+						uart_newline();
+						
+						timer_delay_ms(3000);
 						esp_ap_current_state = ESP_AP_CONFIG_SUCCESS;
 					}
 					else
@@ -337,6 +444,13 @@ void esp_wifi_setup(void)
 						esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
 					}
 				}
+				
+				// if esp failed in connecting to ssid and pass provided, go back to receive ssid and pass state
+				if(FAIL == 1)
+				{
+					esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
+				}
+				
 			uart_flush();
 			break;
 		}

@@ -14,8 +14,8 @@
 //////////////////////////////////////////////////////////////////////////
 //							FUNCTIONALITY ACTIVATION					//
 //////////////////////////////////////////////////////////////////////////
-#define ESP_MANUAL_CONTROL	(1) //allows manually to send AT commands to ESP via terminal
-#define WIRELESS_CONTROL	(0)	//allow pwm channels to be controlled via wifi interface
+#define ESP_MANUAL_CONTROL	(0) //allows manually to send AT commands to ESP via terminal
+#define WIRELESS_CONTROL	(1)	//allow pwm channels to be controlled via wifi interface
 #define LIGHTING_FUNCTION	(1)	//enable timer0 and pwm channel outputs
 #define STATUS_LED			(1)	//enable timer1 and status LED init & toggle
 #define USE_DEBUGPIN		(1)	//enable free pin to be used for debugging / measurements
@@ -62,10 +62,14 @@
 //#define WIFI_SSID_PASSWORD	"\"UPC5C34B5E\",\"jsUsje5vd4ue\"\r\n"		/*232255504335433334423545222C226A7355736A65357664347565220D0A*/
 //#define WIFI_SSID_PASSWORD	"\"AndroidAP\",\"stargate\"\r\n"			/*2322416E64726F69644150222C227374617267617465220D0A*/
 //#define WIFI_SSID_PASSWORD	"\"ASUS_X008D\",\"86c423b622c8\"\r\n"		/*2322415355535F5830303844222C22383663343233623632326338220D0A*/
-#define WIFI_SSID_PASSWORD		"\"MyASUS\",\"Zuzuk1man\"\r\n"				/*23224D7941535553222C225A757A756B316D616E220D0A*/
+//#define WIFI_SSID_PASSWORD	"\"MyASUS\",\"Zuzuk1man\"\r\n"				/*23224D7941535553222C225A757A756B316D616E220D0A*/
 //#define WIFI_SSID_PASSWORD	"\"FELINVEST\",\"1234qwe$\"\r\n"			/*232246454C494E56455354222C223132333471776524220D0A*/
-#define ESP_AP_PORT		"1002"
-#define ESP_STA_PORT	"1001"
+//#define WIFI_SSID_PASSWORD	"\"BogdanMobile\",\"bogdan123\"\r\n" 		/*2322426F6764616E4D6F62696C65222C22626F6764616E313233220D0A*/
+#define WIFI_SSID_PASSWORD		"Blank"
+
+#define ESP_CFG_DEV_PORT	"1003"  //port of device that send the config to ESP
+#define ESP_AP_PORT			"1002"  //port of ESP Access Point TCP Server
+#define ESP_STA_PORT		"1001"  //port of ESP Station TCP Server
 #define ESP_SSID_MAX_LENGTH	20
 #define ESP_PASS_MAX_LENGTH	20
 // Pin mapping for ESP8266 wifi module reset (RST_ESP) and enable (CH_PD)
