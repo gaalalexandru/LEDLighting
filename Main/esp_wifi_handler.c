@@ -1,5 +1,3 @@
-//------------------
-
 /*
  * wifi_handler.c
  *
@@ -8,6 +6,8 @@
  */ 
 //Wifi module type: ESP8266
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "esp_wifi_handler.h"
 #include "configuration.h"
@@ -60,7 +60,14 @@
 /*                           Global variables                           */
 /************************************************************************/
 char serialResult[SERIAL_RESULT_BUFFER_SIZE];
+char workString[32];
+char clientIPString[15];
+char stationIPString[15];
 
+// most often ID is 0 but we can have up to 4 active connections
+// so we want to reply to the right sender who sent ssid and pass
+uint8_t senderID = 0;
+	
 volatile uint8_t esp_sta_current_state = 0;
 volatile uint8_t esp_ap_current_state = 0;
 
@@ -144,6 +151,35 @@ static uint8_t send_command(char *sentCommand, char *compareWord)
 	return check_until_timeout(compareWord, 1);
 }
 
+// Creates TCP server and sends data
+// destination is the IP to which data is sent
+// ID is the connection number
+// message is what is sent
+inline static void esp_response(uint8_t ID, char *destination, char *message)
+{
+	uart_send_string("AT+CIPSTART=");
+	uart_send_udec(ID);
+	uart_send_string(",\"TCP\"");
+	uart_send_char(0x2c);	// ,
+	uart_send_char(0x22);	// "
+	uart_send_string(destination);
+	uart_send_char(0x22);	// "
+	uart_send_char(0x2c);	// ,
+	uart_send_string(ESP_CFG_DEV_PORT);
+	uart_newline();
+	
+	timer_delay_ms(1000);
+	
+	uart_send_string("AT+CIPSEND=");
+	uart_send_udec(ID);
+	uart_send_char(0x2c);	// ,
+	uart_send_udec(strlen(message));
+	uart_newline();
+	timer_delay_ms(200);
+	uart_send_string(message);
+	uart_newline();
+}
+
 /************************************************************************/
 /*                        Wifi handling functions                       */
 /************************************************************************/
@@ -214,12 +250,11 @@ void esp_check_current_setup(void)
 #endif //ESP_FORCE_WIFI_SETUP	
 }
 
-void esp_wifi_setup(void)
 // this function will setup the ESP Access Point
 // mobile device will connect to this network
 // mobile device will send the SSID and password of home network
 // ESP will send to mobile device the IP of ESP on home network
-
+void esp_wifi_setup(void)
 {
 	char ipCheckResult[SERIAL_RESULT_BUFFER_SIZE];
 	uint8_t i = 0;  // index for buffer, and character counter.
@@ -228,15 +263,13 @@ void esp_wifi_setup(void)
 	
 	uint8_t OK = 0;
 	uint8_t FAIL = 0;
-	uint8_t CLOSED = 0;
 
-	char workString[32];
+	// used in multiple places so we don't use too much memory
 	memset(workString, 0, 32);
 	
-	char clientIPString[15];
+	// changed as global varaiables
+	// local variables acted strangely
 	memset(clientIPString, 0, 15);
-
-	char stationIPString[15];
 	memset(stationIPString, 0, 15);
 	
 	char *stationIP_begin = NULL;
@@ -272,8 +305,8 @@ void esp_wifi_setup(void)
 				//if(send_command("AT+CIPSERVER=1,1002", "OK"))
 				if(send_command(strcat("AT+CIPSERVER=1,",ESP_AP_PORT), "OK"))
 				{
-					send_command("AT+CIPDINFO=1", "OK");
-					send_command("AT+CIPSTO=15", "OK");
+					send_command("AT+CIPDINFO=1", "OK");	// detailed information (IP & PORT) in +IPD
+					send_command("AT+CIPSTO=60", "OK");		// time until tcp server connection is closed
 					esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
 				}
 				uart_flush();
@@ -287,47 +320,45 @@ void esp_wifi_setup(void)
 				4. ESP check IP, if OK go to 5, if not OK, go to 1.
 				5. ESP -> mobile device: #stationIP
 				*/
+				
+				OK = 0;
+				FAIL = 0;
+				
 				if(check_until_timeout("+IPD,", 5))
 				{
 					//response example:
 					//+IPD,0,25,192.168.4.2,50511:#"FELINVEST","1234qwe$"
 					currStrPos = strstr(serialResult, "+IPD,");  //find start of response
-					currStrPos += 7;  //jump to "," before message length
+					currStrPos += 5;	// jump to ID of sender
+					senderID = atoi(currStrPos);	// store ID of sender
+					currStrPos += 2;  //jump to "," before message length
+					
 					clientIP_begin = strchr(currStrPos, 0x2c);	//jump to next ','
 					clientIP_begin++;  //jump to start of IP
 					clientIP_end = strchr(clientIP_begin, 0x2c);	//jump to next ','
+					strncpy(clientIPString, clientIP_begin, (uint8_t)(clientIP_end-clientIP_begin));
+					
 					currStrPos = strchr(currStrPos, '#');  //find start of SSID
 					currStrPos++;
-					strcpy(workString, currStrPos);
-									
-					#if 1	// VERSION 1: clientIpString contains the IP of the client
-					//No reason to save incoming data port
-					//The client TCP port always changes
-					//and is different from TCP server port
-					strncpy(clientIPString, clientIP_begin, (uint8_t)(clientIP_end-clientIP_begin));
-					#endif	// VERSION 1
-
+					strcpy(workString, currStrPos);		// at this point, workString contains SSID and PASS
+		
 					esp_ap_current_state = ESP_AP_CONFIG_CHECK;
 				}
 				uart_flush();
 			break;
+			
 			case ESP_AP_CONFIG_CHECK:
 				//connect to new SSID
 				uart_flush();
 				timer_delay_ms(1000);
-				uart_send_string("AT+CWJAP=");
+				uart_send_string("AT+CWJAP=");	// at this point, workString contains SSID and PASS
 				uart_send_string(workString);
 				uart_newline();
 				timer_delay_ms(1000);
 				
 				do
 				{
-					memset(workString, 0, 32);
-					uart_get_string(workString, 32);
-					if(strstr(workString, "CLOSED") != NULL)
-					{
-						CLOSED = 1;
-					}
+					uart_get_string(workString, 32);	// at this point, workString contains response from AT+CWJAP
 					if(strstr(workString, "OK") != NULL)
 					{
 						OK = 1;
@@ -359,40 +390,28 @@ void esp_wifi_setup(void)
 						stationIP_begin = strstr(ipCheckResult, "STAIP");
 						stationIP_begin += 7;
 						stationIP_end = strchr(stationIP_begin, 0x22);	// ' " '
-						uart_flush();				
+						uart_flush();	
 						strncpy(stationIPString, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
-
-						//If connection was closed, create TCP client connection, 
-						//TCP server must run on the other device
-						//command format: AT+CIPSTART=ID,"TCP","192.168.100.123",1003
-						if (CLOSED == 1)
-						{					
-							//uart_send_string(strcat("AT+CIPSTART=0,\"TCP\",\"",clientIPString));  //client connection id = 0
-							uart_send_string("AT+CIPSTART=0,\"TCP\",\"");
-							uart_send_string(clientIPString);
-							//uart_send_string(strcat("\",",ESP_CFG_DEV_PORT));
-							uart_send_string("\",");
-							uart_send_string(ESP_CFG_DEV_PORT);
-							uart_newline();
-							timer_delay_ms(2000);
-						}
-						
-						// send to client the station IP
-						send_command("AT+CIPSEND=0,15", "OK");
-						uart_send_string(stationIPString);		
-						uart_newline();	
+						esp_response(senderID, clientIPString, stationIPString);
 						timer_delay_ms(3000);
+						
 						esp_ap_current_state = ESP_AP_CONFIG_SUCCESS;
 					}
+					// not needed here since this is treated below in (FAIL == 1) condition and there two possible replies, OK and FAIL
+					#if 0
 					else
 					{
+						esp_response(senderID, clientIPString, "Could not connect");
 						esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
 					}
+					#endif
 				}
 				
 				// if esp failed in connecting to ssid and pass provided, go back to receive ssid and pass state
-				if(FAIL == 1)
+				else if(FAIL == 1)
 				{
+					esp_response(senderID, clientIPString, "Could not connect");
+					timer_delay_ms(1000);
 					esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
 				}
 				
@@ -400,11 +419,17 @@ void esp_wifi_setup(void)
 			break;
 		}
 	}
+	
 	if (esp_ap_current_state == ESP_AP_CONFIG_SUCCESS)
 	{
 		//maybe start state machine???
 		esp_sta_current_state = ESP_STA_START_TCP_SERVER;
 	}
+	
+	stationIP_begin = NULL;
+	stationIP_end = NULL;
+	clientIP_begin = NULL;
+	clientIP_end = NULL;
 }
 /*
 
@@ -415,6 +440,7 @@ void esp_state_machine(void)
 	char *currStrPos, *dataPtr;
 	uint8_t channel_nr = 0;
 	uint8_t channel_value = 0;
+	
 	while( esp_sta_current_state < ESP_STA_WAIT_COMMANDS) 
 	{
 		switch (esp_sta_current_state)
@@ -556,10 +582,15 @@ void esp_state_machine(void)
 						
 			currStrPos = strchr(currStrPos, '#');  //find start of duty cycle byte		
 			dataPtr = currStrPos + 1;
+
 			channel_value = *dataPtr;  //save the target duty cycle value
+			pwm_width_buffer[channel_nr] = channel_value; // update pwm_width buffer
 			
-			pwm_width_buffer[channel_nr] = channel_value; // update pwm_width buffer		
+			uart_send_string("pwm ");
+			uart_send_udec(channel_value);
+			uart_newline();		
 		}
-	uart_flush();
+		
+		uart_flush();
 	}
 }

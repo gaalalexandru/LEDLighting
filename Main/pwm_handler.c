@@ -20,6 +20,12 @@
 #define PWM_SET_CH3(x)	set_port_d(7,x)
 #define PWM_SET_CH4(x)	set_port_b(2,x)
 #define PWM_SET_CH5(x)	set_port_b(1,x)
+#define PWM_SET_CH6(x)	set_port_c(0,x)
+#define PWM_SET_CH7(x)	set_port_c(1,x)
+#define PWM_SET_CH8(x)	set_port_c(2,x)
+#define PWM_SET_CH9(x)	set_port_c(3,x)
+#define PWM_SET_CH10(x)	set_port_c(4,x)
+#define PWM_SET_CH11(x)	set_port_c(5,x)
 
 //global buffers
 uint8_t pwm_width[CHMAX];
@@ -51,6 +57,18 @@ static inline void set_port_d(const uint8_t pin, const bool level)
 	}
 }
 
+static inline void set_port_c(const uint8_t pin, const bool level)
+{
+	if (level)
+	{
+		PORTC |= (1 << pin);
+	}
+	else
+	{
+		PORTC &= ~(1 << pin);
+	}
+}
+
 /*
  * Setting all pins individually allows the user to freely select pins regardless of port,
  * but it is not optimal for minimizing jitter.
@@ -62,6 +80,7 @@ static void pwm_set_all_chanels(const bool level)
 {
 	PORTB = (level << PIN0) | (level << PIN1) | (level << PIN2);
 	PORTD = (level << PIN5) | (level << PIN6) | (level << PIN7); 
+	PORTC = (level << PIN0) | (level << PIN1) | (level << PIN2) | (level << PIN3) | (level << PIN4) | (level << PIN5);
 }
 
 void pwm_init(void)
@@ -75,6 +94,7 @@ void pwm_init(void)
 	}
 	DDRB |= 0x07;  //Set output pin 0, 1, 2 of port B
 	DDRD |= 0xE0;  //Set output pin 5, 6, 7 of port D
+	DDRC |= 0x3F;  //Set output pin 0, 1, 2, 3, 4, 5 of port C
 	pwm_set_all_chanels(false);
 
 }
@@ -105,6 +125,13 @@ void pwm_update(void)
 		pwm_width[4] = pwm_width_buffer[4];
 		pwm_width[5] = pwm_width_buffer[5];
 		
+		pwm_width[6] = pwm_width_buffer[6];
+		pwm_width[7] = pwm_width_buffer[7];
+		pwm_width[8] = pwm_width_buffer[8];
+		pwm_width[9] = pwm_width_buffer[9];
+		pwm_width[10] = pwm_width_buffer[10];
+		pwm_width[11] = pwm_width_buffer[11];
+		
 		//current method fast enough and can check 0% channel setting
 		//pwm_set_all_chaels function is not needed for the moment
 		//has the drawback of not being able to set duty cycle 0%
@@ -114,24 +141,45 @@ void pwm_update(void)
 		PWM_SET_CH2((pwm_width[2] > 0));
 		PWM_SET_CH3((pwm_width[3] > 0));
 		PWM_SET_CH4((pwm_width[4] > 0));
-		PWM_SET_CH5((pwm_width[5] > 0));					
+		PWM_SET_CH5((pwm_width[5] > 0));
+		
+		PWM_SET_CH6((pwm_width[6] > 0));		
+		PWM_SET_CH7((pwm_width[7] > 0));
+		PWM_SET_CH8((pwm_width[8] > 0));
+		PWM_SET_CH9((pwm_width[9] > 0));
+		PWM_SET_CH10((pwm_width[10] > 0));
+		PWM_SET_CH11((pwm_width[11] > 0));		
 	}
 	else
 	{
 		// clear port pin on pwm_width match
 		if (pwm_width[0] == softcount)
-		PWM_SET_CH0(false);
+			PWM_SET_CH0(false);
 		if (pwm_width[1] == softcount)
-		PWM_SET_CH1(false);
+			PWM_SET_CH1(false);
 		if (pwm_width[2] == softcount)
-		PWM_SET_CH2(false);
+			PWM_SET_CH2(false);
 		if (pwm_width[3] == softcount)
-		PWM_SET_CH3(false);
+			PWM_SET_CH3(false);
 		if (pwm_width[4] == softcount)
-		PWM_SET_CH4(false);
+			PWM_SET_CH4(false);
 		if (pwm_width[5] == softcount)
-		PWM_SET_CH5(false);	
+			PWM_SET_CH5(false);	
+			
+		if (pwm_width[6] == softcount)
+			PWM_SET_CH6(false);
+		if (pwm_width[7] == softcount)
+			PWM_SET_CH7(false);
+		if (pwm_width[8] == softcount)
+			PWM_SET_CH8(false);
+		if (pwm_width[9] == softcount)
+			PWM_SET_CH9(false);
+		if (pwm_width[10] == softcount)
+			PWM_SET_CH10(false);
+		if (pwm_width[11] == softcount)
+			PWM_SET_CH11(false);
 	}
+	
 	#if USE_DEBUGPIN
 	PORTC = 0x00;
 	#endif //USE_DEBUGPIN

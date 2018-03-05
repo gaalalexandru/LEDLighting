@@ -50,7 +50,7 @@
 //////////////////////////////////////////////////////////////////////////
 //							PWM CONFIGURATIONS							//
 //////////////////////////////////////////////////////////////////////////
-#define CHMAX 6 //maximum number of pwm channels
+#define CHMAX 12 //maximum number of pwm channels
 #define PWMDEFAULT 0x00  //default pulse width
 #define PWM_DUTY_CYCLE_RESOLUTION 20  //number of duty cycle adjustments 
 //0x30 = 0%, 0x31 = 5%, 0x32 = 10%, 0x3A = 50%, 0x3B = 55%
