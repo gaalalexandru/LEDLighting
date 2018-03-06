@@ -60,7 +60,9 @@
 /*                           Global variables                           */
 /************************************************************************/
 char serialResult[SERIAL_RESULT_BUFFER_SIZE];
+// Used in multiple places so we don't occupy memory 
 char workString[32];
+// local variables acted strangely
 char clientIPString[15];
 char stationIPString[15];
 
@@ -168,7 +170,11 @@ inline static void esp_response(uint8_t ID, char *destination, char *message)
 	uart_send_string(ESP_CFG_DEV_PORT);
 	uart_newline();
 	
-	timer_delay_ms(1000);
+	//Wait for TCP server success signal before sending data to client
+	do
+	{
+		uart_get_string(workString, 32);	// at this point, workString contains response from AT+CIPSTART
+	} while ((strstr(workString, "OK") == NULL) && (strstr(workString, "ALREADY") == NULL));
 	
 	uart_send_string("AT+CIPSEND=");
 	uart_send_udec(ID);
@@ -264,11 +270,7 @@ void esp_wifi_setup(void)
 	uint8_t OK = 0;
 	uint8_t FAIL = 0;
 
-	// used in multiple places so we don't use too much memory
 	memset(workString, 0, 32);
-	
-	// changed as global varaiables
-	// local variables acted strangely
 	memset(clientIPString, 0, 15);
 	memset(stationIPString, 0, 15);
 	
@@ -393,7 +395,7 @@ void esp_wifi_setup(void)
 						uart_flush();	
 						strncpy(stationIPString, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
 						esp_response(senderID, clientIPString, stationIPString);
-						timer_delay_ms(3000);
+						timer_delay_ms(2000);
 						
 						esp_ap_current_state = ESP_AP_CONFIG_SUCCESS;
 					}
@@ -411,7 +413,7 @@ void esp_wifi_setup(void)
 				else if(FAIL == 1)
 				{
 					esp_response(senderID, clientIPString, "Could not connect");
-					timer_delay_ms(1000);
+					timer_delay_ms(2000);
 					esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
 				}
 				
@@ -544,7 +546,11 @@ void esp_state_machine(void)
 				uart_flush();
 			break;
 			case ESP_STA_START_TCP_SERVER:
-				//Start TCP server on a manually selected port
+				//Close AP TCP server
+				send_command("AT+CIPSERVER=0", "OK");
+				timer_delay_ms(100);
+				
+				//Start STA TCP server on a manually selected port
 				//AleGaa TCP port currently is set manually in code
 				//for future versions this will be inputed via serial interface
 				//or wifi through mobile device connecting to SoftAP of ESP

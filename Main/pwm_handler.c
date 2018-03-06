@@ -105,14 +105,14 @@ void pwm_update(void)
 	PORTC = 0xFF;
 	#endif //USE_DEBUGPIN
 	//static uint8_t softcount = 0xFF;
-	static uint8_t softcount = 0x00;
+	static uint8_t softcount = PWM_DUTY_CYCLE_RESET_VALUE;
 	/* increment modulo 256 counter and update
 	the pwm_width values only when counter = 0.
 	verbose code for speed, do not replace with for...
 	last element should equal CHMAX - 1 */
 	//softcount = (softcount + 1) % PWM_DUTY_CYCLE_RESOLUTION;  //slower method
 	softcount++;  // faster method with if condition
-	if(softcount >= PWM_DUTY_CYCLE_RESOLUTION)
+	if(softcount >= PWM_DUTY_MAX_VALUE)
 	{
 		softcount = PWM_DUTY_CYCLE_RESET_VALUE;
 	}
@@ -136,19 +136,20 @@ void pwm_update(void)
 		//pwm_set_all_chaels function is not needed for the moment
 		//has the drawback of not being able to set duty cycle 0%
 		//pwm_set_all_chanels(true);
-		PWM_SET_CH0((pwm_width[0] > 0));
-		PWM_SET_CH1((pwm_width[1] > 0));
-		PWM_SET_CH2((pwm_width[2] > 0));
-		PWM_SET_CH3((pwm_width[3] > 0));
-		PWM_SET_CH4((pwm_width[4] > 0));
-		PWM_SET_CH5((pwm_width[5] > 0));
+		//(pwm_width[0] > 0x30) or (pwm_width[0] != 0x30)
+		PWM_SET_CH0((pwm_width[0] > 0x30));
+		PWM_SET_CH1((pwm_width[1] > 0x30));
+		PWM_SET_CH2((pwm_width[2] > 0x30));
+		PWM_SET_CH3((pwm_width[3] > 0x30));
+		PWM_SET_CH4((pwm_width[4] > 0x30));
+		PWM_SET_CH5((pwm_width[5] > 0x30));
 		
-		PWM_SET_CH6((pwm_width[6] > 0));		
-		PWM_SET_CH7((pwm_width[7] > 0));
-		PWM_SET_CH8((pwm_width[8] > 0));
-		PWM_SET_CH9((pwm_width[9] > 0));
-		PWM_SET_CH10((pwm_width[10] > 0));
-		PWM_SET_CH11((pwm_width[11] > 0));		
+		PWM_SET_CH6((pwm_width[6] > 0x30));		
+		PWM_SET_CH7((pwm_width[7] > 0x30));
+		PWM_SET_CH8((pwm_width[8] > 0x30));
+		PWM_SET_CH9((pwm_width[9] > 0x30));
+		PWM_SET_CH10((pwm_width[10] > 0x30));
+		PWM_SET_CH11((pwm_width[11] > 0x30));		
 	}
 	else
 	{

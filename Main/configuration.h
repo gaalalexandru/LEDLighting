@@ -18,7 +18,7 @@
 #define WIRELESS_CONTROL	(1)	//allow pwm channels to be controlled via wifi interface
 #define LIGHTING_FUNCTION	(1)	//enable timer0 and pwm channel outputs
 #define STATUS_LED			(1)	//enable timer1 and status LED init & toggle
-#define USE_DEBUGPIN		(1)	//enable free pin to be used for debugging / measurements
+#define USE_DEBUGPIN		(0)	//enable free pin to be used for debugging / measurements
 #define TERMINAL_CONTROL	(0)	//allow PWM channels to be manually controlled via serial terminal
 //message format is #xYY, x = channel number, YY 8bit hex value of pulse width
 #define TERMINAL_DEBUG		(0) //enable the print of various information to terminal
@@ -52,7 +52,7 @@
 //////////////////////////////////////////////////////////////////////////
 #define CHMAX 12 //maximum number of pwm channels
 #define PWMDEFAULT 0x00  //default pulse width
-#define PWM_DUTY_CYCLE_RESOLUTION 20  //number of duty cycle adjustments 
+#define PWM_DUTY_MAX_VALUE 0x44  //number of duty cycle adjustments 
 //0x30 = 0%, 0x31 = 5%, 0x32 = 10%, 0x3A = 50%, 0x3B = 55%
 //0x3C = 60%, 0x3D = 65%, 0x3F = 75%, 0x40 = 80%, 0x43 = 95%, 0x44 = 100%
 #define PWM_DUTY_CYCLE_RESET_VALUE 0x30  //start value of duty cycle counter
