@@ -14,14 +14,14 @@
 
 //macros to set pin assigned as pwm channels
 //if layout changes update the macros also
-#define PWM_SET_CH0(x)	set_port_d(6,x)
-#define PWM_SET_CH1(x)	set_port_d(5,x)
-#define PWM_SET_CH2(x)	set_port_b(0,x)
-#define PWM_SET_CH3(x)	set_port_d(7,x)
+#define PWM_SET_CH0(x)	set_port_d(7,x)
+#define PWM_SET_CH1(x)	set_port_b(0,x)
+#define PWM_SET_CH2(x)	set_port_d(6,x)
+#define PWM_SET_CH3(x)	set_port_d(5,x)
 #define PWM_SET_CH4(x)	set_port_b(2,x)
 #define PWM_SET_CH5(x)	set_port_b(1,x)
-#define PWM_SET_CH6(x)	set_port_c(0,x)
-#define PWM_SET_CH7(x)	set_port_c(1,x)
+#define PWM_SET_CH6(x)	set_port_c(1,x)
+#define PWM_SET_CH7(x)	set_port_c(0,x)
 #define PWM_SET_CH8(x)	set_port_c(2,x)
 #define PWM_SET_CH9(x)	set_port_c(3,x)
 #define PWM_SET_CH10(x)	set_port_c(4,x)

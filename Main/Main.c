@@ -15,6 +15,7 @@
 #include "esp_wifi_handler.h"
 #include "manual_control.h"
 #include "status_led.h"
+#include "animation_handler.h"
 
 int main(void)
 {
@@ -46,11 +47,18 @@ int main(void)
 	#endif  //LIGHTING_FUNCTIN
 	
 	sei();  // enable global interrupts
-	uart_send_string("\r\n interrupts enabled\r\n ");
+	//uart_send_string("\r\n interrupts enabled\r\n ");
+	
+	
+	
 	#if WIRELESS_CONTROL
 	esp_init();
 	esp_check_current_setup();
 	#endif //WIRELESS_CONTROL
+	
+	#if STARTUP_ANIMATION_FUNCTION
+	animation_init();
+	#endif //STARTUP_ANIMATION_FUNCTION
 	
     while(1)
     {

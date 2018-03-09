@@ -16,11 +16,18 @@
 #include "timer_handler.h"
 #include "pwm_handler.h"
 #include "status_led.h"
+#include "esp_wifi_handler.h"
+#include "animation_handler.h"
+
+#define ESP_STA_CHECK_CONNECTION	7
 
 /************************************************************************/
 /*	                          Global Variables                          */
 /************************************************************************/
 volatile uint32_t timer_system_ms = 0;  //system startup counter in milliseconds
+extern volatile uint8_t bEspIsConnected;
+extern volatile uint8_t bEspIsInit;
+extern volatile uint8_t esp_sta_current_state;
 
 /************************************************************************/
 /*	                  Timer Initialization Functions                    */
@@ -127,8 +134,6 @@ inline uint32_t timer_ms(void)
 	return timer_system_ms;
 }
 
-
-
 /************************************************************************/
 /*	               Timer Interrupt Service Routines                     */
 /************************************************************************/
@@ -143,6 +148,36 @@ ISR (TIMER0_OVF_vect)
 /* Timer1 Compare Match A Interrupt function*/
 ISR (TIMER1_COMPA_vect)
 {
+	#if 0	// used before opting for modifying receive_serial function
+	if(bEspIsInit)
+	{
+		static uint8_t count = 0;
+		++count;
+		if(count == 100)	//10 seconds
+		{
+			count = 0;
+			{
+				esp_sta_current_state = ESP_STA_CHECK_CONNECTION;
+			}
+		}
+	}
+	#endif
+	
+	#if NOCONNECTION_ANIMATION_FUNCTION
+	if(bEspIsConnected == false)
+	{
+		static uint8_t counter = 0;
+		static uint8_t toggle = 0;
+		++counter;
+		if (counter == 10)	// 1second
+		{
+			counter = 0;
+			animation_setallchannels(toggle);
+			toggle ^= 1;
+		}
+	}
+	#endif
+	
 	//TOGGLE_STATUS_LED; @AleGaa not valid anymore
 	status_led_update();
 }
