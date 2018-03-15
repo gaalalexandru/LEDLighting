@@ -148,19 +148,19 @@ ISR (TIMER0_OVF_vect)
 /* Timer1 Compare Match A Interrupt function*/
 ISR (TIMER1_COMPA_vect)
 {
-	#if 0	// used before opting for modifying receive_serial function
-	if(bEspIsInit)
+	#if 0 // used before switching to searching for "WIFI" in serialResult
+	#if WIFI_CHECKCONNECTION_FUNCTION
+	if(bEspIsInit == true)
 	{
 		static uint8_t count = 0;
 		++count;
-		if(count == 100)	//10 seconds
+		if(count == 10 * WIFI_CHECKCONNECTION_FUNCTION)	//10 seconds
 		{
 			count = 0;
-			{
-				esp_sta_current_state = ESP_STA_CHECK_CONNECTION;
-			}
+			esp_sta_current_state = ESP_STA_CHECK_CONNECTION;
 		}
 	}
+	#endif //WIFI_CHECKCONNECTION_FUNCTION
 	#endif
 	
 	#if NOCONNECTION_ANIMATION_FUNCTION
@@ -176,7 +176,7 @@ ISR (TIMER1_COMPA_vect)
 			toggle ^= 1;
 		}
 	}
-	#endif
+	#endif //NOCONNECTION_ANIMATION_FUNCTION
 	
 	//TOGGLE_STATUS_LED; @AleGaa not valid anymore
 	status_led_update();

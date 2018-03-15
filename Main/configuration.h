@@ -76,6 +76,9 @@
 #define WIFI_SSID_PASSWORD	"\"BogdanMobile\",\"bogdan123\"\r\n" 		/*2322426F6764616E4D6F62696C65222C22626F6764616E313233220D0A*/
 //#define WIFI_SSID_PASSWORD		"Blank"
 
+#define WIFI_CHECKCONNECTION_FUNCTION	(10)	//interval in seconds between connection checks; 0 = off
+#define WIFI_CHECKCONNECTION_ATTEMPTS (3)	//retry connection attempts
+
 #define ESP_AP_TCP_TIMEOUT	"60"	//seconds before tcp connection is closed
 #define ESP_CFG_DEV_PORT	"1003"  //port of device that send the config to ESP
 #define ESP_AP_PORT			"1002"  //port of ESP Access Point TCP Server
