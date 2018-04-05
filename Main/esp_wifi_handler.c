@@ -229,6 +229,15 @@ void esp_init(void)
 // and also returns true/false if station has/hasn't got an IP
 static inline uint8_t esp_check_connection(char ipCheckResult[])
 {
+	/*
+	To check if we are already connected to a wifi network:
+	Send command to ESP "AT+CIFSR"
+	Check if response string contains station IP nr. 0.0.0.0.
+	If string doesn't contain "STAIP,\"0.0.", pointer of strstr().
+	will be NULL and the condition will be true, esp has IP.
+	If string contains "STAIP,\"0.0.", pointer off strstr() not NULL,
+	the condition will be false, esp has no IP.
+	*/
 	memset(ipCheckResult, 0, SERIAL_RESULT_BUFFER_SIZE-1);
 	uint8_t ipResultIndex = 0;  // index for buffer, and character counter.
 	
@@ -249,8 +258,9 @@ static inline uint8_t esp_check_connection(char ipCheckResult[])
 	uart_flush();
 	
 	if(strstr(ipCheckResult, "STAIP,\"0.0.") == NULL)
+	//if return string doesn't contain 0.0. esp has IP
 	{
-		return true;
+		return true;  
 	}
 	return false;
 }
@@ -260,15 +270,10 @@ void esp_check_current_setup(void)
 #if ESP_FORCE_WIFI_SETUP  //for development of wifi setup functionalities
 	esp_wifi_setup();
 #else //normal run
-	/*
-	To check if we are already connected to a wifi network:
-	Check if string contains station IP nr. 0.0.0.0.
-	If string doesn't contain "STAIP,\"0.0.", pointer of strstr().
-	will be NULL and the condition will be true.
-	In this case we can proceed to MUX setting and TCP server start.
-	If string contains "STAIP,\"0.0.", pointer off strstr() not NULL,
-	the condition will be false and will start the routines for new
-	wifi network setup.
+	/* 
+	Call "esp_check_connection()" function, if the return result is
+	TRUE: In this case we can proceed to MUX setting and TCP server start.
+	FALSE: will start the routines for new wifi network setup.
 	*/
 	char ipCheckResult[SERIAL_RESULT_BUFFER_SIZE];
 	if(esp_check_connection(ipCheckResult))  //esp station has IP

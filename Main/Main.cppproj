@@ -137,6 +137,12 @@
     </PreBuildEvent>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="animation_handler.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="animation_handler.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="configuration.h">
       <SubType>compile</SubType>
     </Compile>
