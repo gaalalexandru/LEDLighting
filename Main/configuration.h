@@ -59,12 +59,15 @@
 //////////////////////////////////////////////////////////////////////////
 //							PWM CONFIGURATIONS							//
 //////////////////////////////////////////////////////////////////////////
-#define CHMAX 12 //maximum number of pwm channels
+#define PWM_CHMAX 12 //maximum number of pwm channels
 #define PWMDEFAULT 0x00  //default pulse width
 #define PWM_DUTY_MAX_VALUE 0x44  //number of duty cycle adjustments 
 //0x30 = 0%, 0x31 = 5%, 0x32 = 10%, 0x3A = 50%, 0x3B = 55%
 //0x3C = 60%, 0x3D = 65%, 0x3F = 75%, 0x40 = 80%, 0x43 = 95%, 0x44 = 100%
 #define PWM_DUTY_CYCLE_RESET_VALUE 0x30  //start value of duty cycle counter
+#define PWM_ALL_CH (12)  //ID to controll all channels
+#define PWM_HALF1_CH (13)  //ID to control 1st half of channels 0 - 5
+#define PWM_HALF2_CH (14)  //ID to control 2nd half of channels 6 - 11
 //////////////////////////////////////////////////////////////////////////
 //						WIFI & ESP CONFIGURATIONS						//
 //////////////////////////////////////////////////////////////////////////					

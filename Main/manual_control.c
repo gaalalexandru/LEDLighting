@@ -15,7 +15,7 @@
 /************************************************************************/
 /*                           Global variables                           */
 /************************************************************************/
-extern volatile uint8_t pwm_width_buffer[CHMAX];
+extern volatile uint8_t pwm_width_buffer[PWM_CHMAX];
 
 /************************************************************************/
 /*                         Function definitions                         */
@@ -39,7 +39,7 @@ void manual_control(void)
 	;                              // wait for sync character
 	uart_send_char('#');              // echo sync character
 	channel = uart_get_char() - 0x30; // receive channel number
-	if (channel >= CHMAX)
+	if (channel >= PWM_CHMAX)
 	error = 1;                   // error if invalid channel
 	uart_send_char(channel + 0x30); // echo received character
 
@@ -85,7 +85,7 @@ void manual_control(void)
 	}
 	uart_send_string("PWM values are: ");
 	uart_newline();
-	for(i=0;i<CHMAX;i++){
+	for(i=0;i<PWM_CHMAX;i++){
 		uart_send_string("Channel: ");
 		uart_send_udec(i);
 		uart_send_string(" = ");

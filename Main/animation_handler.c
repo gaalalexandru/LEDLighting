@@ -13,13 +13,13 @@
 #define true	1
 #define false	0
 
-extern volatile uint8_t pwm_width_buffer[CHMAX];
+extern volatile uint8_t pwm_width_buffer[PWM_CHMAX];
 
 void animation_init(void)
 {
 	uint8_t i;
 	#if (STARTUP_ANIMATION_MODE == 1)
-	for(i = 0; i < CHMAX; ++i)
+	for(i = 0; i < PWM_CHMAX; ++i)
 	{
 		timer_delay_ms(100);
 		pwm_width_buffer[i] = STARTUP_ANIMATION_DEFAULTPWM;
@@ -29,7 +29,7 @@ void animation_init(void)
 	for(uint8_t j = PWM_DUTY_CYCLE_RESET_VALUE; j <= STARTUP_ANIMATION_DEFAULTPWM; ++j)
 	{
 		timer_delay_ms(100);
-		for(i = 0; i < CHMAX; ++i)
+		for(i = 0; i < PWM_CHMAX; ++i)
 		{
 			pwm_width_buffer[i] = j;
 		}
@@ -39,7 +39,7 @@ void animation_init(void)
 
 void animation_setallchannels(const bool level)
 {
-	for(uint8_t i = 0; i < CHMAX; ++i)
+	for(uint8_t i = 0; i < PWM_CHMAX; ++i)
 	{
 		if(level)
 		{

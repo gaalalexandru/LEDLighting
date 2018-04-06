@@ -85,7 +85,7 @@ volatile uint8_t esp_ap_current_state = 0;
 //char esp_wifi_pass[ESP_PASS_MAX_LENGTH];
 
 volatile uint32_t response_max_timestamp;
-extern volatile uint8_t pwm_width_buffer[CHMAX];
+extern volatile uint8_t pwm_width_buffer[PWM_CHMAX];
 extern volatile status_led_mode_t status_led_mode;
 
 /************************************************************************/
@@ -160,12 +160,42 @@ static uint8_t send_command(char *sentCommand, char *compareWord)
 	return check_until_timeout(compareWord, 1);
 }
 
+//helper function that extracts client ID and IP
+//extracted data is stored in global variables
+inline static void esp_aux_calc_station_ip(char *workString)
+{
+	char *stationIP_begin = NULL;
+	char *stationIP_end = NULL;
+	stationIP_begin = strstr(workString, "STAIP");
+	stationIP_begin += 7;
+	stationIP_end = strchr(stationIP_begin, 0x22);	// ' " '
+	uart_flush();
+	strncpy(stationIPString, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
+}
+
+//helper function that extracts client ID and IP
+//extracted data is stored in global variables
+inline static void esp_client_data(char *workString)
+{
+	char *clientIP_begin = NULL;
+	char *clientIP_end = NULL;
+	senderID = atoi(workString);	// store ID of sender
+	workString += 2;  //jump to "," before message length
+	clientIP_begin = strchr(workString, 0x2c);	//jump to next ','
+	clientIP_begin++;  //jump to start of IP
+	clientIP_end = strchr(clientIP_begin, 0x2c);	//jump to next ','
+	strncpy(clientIPString, clientIP_begin, (uint8_t)(clientIP_end-clientIP_begin));
+}
+
 // Creates TCP server and sends data
 // ID is the connection number
 // destination is the IP to which data is sent
 // message is what is sent
 inline static void esp_response(uint8_t ID, char *destination, char *message)
 {
+	//AleGaa Could the next block be deactivated because we will use persistent TCP connection when communicating with ESP AP
+	//However strange behavior was observed, sometimes when joining the router wifi network, the connection is closed
+	#if 1  
 	uart_send_string("AT+CIPSTART=");
 	uart_send_udec(ID);
 	uart_send_string(",\"TCP\"");
@@ -176,6 +206,7 @@ inline static void esp_response(uint8_t ID, char *destination, char *message)
 	uart_send_char(0x2c);	// ,
 	uart_send_string(ESP_CFG_DEV_PORT);
 	uart_newline();
+	#endif
 	
 	#if 0 //Wait for TCP server success signal before sending data to client
 	char workString[32];
@@ -305,10 +336,10 @@ void esp_wifi_setup(void)
 	uint8_t CWJAP_FAIL = 0;
 	
 	char *currStrPos = NULL;
-	char *stationIP_begin = NULL;
-	char *stationIP_end = NULL;
-	char *clientIP_begin = NULL;
-	char *clientIP_end = NULL;
+	//char *stationIP_begin = NULL;
+	//char *stationIP_end = NULL;
+	//char *clientIP_begin = NULL;
+	//char *clientIP_end = NULL;
 	
 	esp_ap_current_state = ESP_AP_INIT;
 	bEspIsInit = false;
@@ -376,21 +407,14 @@ void esp_wifi_setup(void)
 				
 				CWJAP_OK = 0;
 				CWJAP_FAIL = 0;
-				
+
 				if(check_until_timeout("+IPD,", 5))
 				{
 					//response example:
 					//+IPD,0,25,192.168.4.2,50511:#"FELINVEST","1234qwe$"
 					currStrPos = strstr(serialResult, "+IPD,");  //find start of response
 					currStrPos += 5;	// jump to ID of sender
-					senderID = atoi(currStrPos);	// store ID of sender
-					currStrPos += 2;  //jump to "," before message length
-					
-					clientIP_begin = strchr(currStrPos, 0x2c);	//jump to next ','
-					clientIP_begin++;  //jump to start of IP
-					clientIP_end = strchr(clientIP_begin, 0x2c);	//jump to next ','
-					strncpy(clientIPString, clientIP_begin, (uint8_t)(clientIP_end-clientIP_begin));
-					
+					esp_client_data(currStrPos);				
 					currStrPos = strchr(currStrPos, '#');  //find start of SSID
 					currStrPos++;
 					strcpy(workString, currStrPos);		// at this point, workString contains SSID and PASS
@@ -429,11 +453,14 @@ void esp_wifi_setup(void)
 					timer_delay_ms(1000);
 					if(esp_check_connection(ipCheckResult))  //esp station has IP
 					{
+						esp_aux_calc_station_ip(ipCheckResult);
+						/*
 						stationIP_begin = strstr(ipCheckResult, "STAIP");
 						stationIP_begin += 7;
 						stationIP_end = strchr(stationIP_begin, 0x22);	// ' " '
 						uart_flush();	
 						strncpy(stationIPString, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
+						*/
 						esp_response(senderID, clientIPString, stationIPString);
 						timer_delay_ms(2000);
 						
@@ -471,10 +498,10 @@ void esp_wifi_setup(void)
 		esp_sta_current_state = ESP_STA_START_TCP_SERVER;
 	}
 	
-	stationIP_begin = NULL;
-	stationIP_end = NULL;
-	clientIP_begin = NULL;
-	clientIP_end = NULL;
+	//stationIP_begin = NULL;
+	//stationIP_end = NULL;
+	//clientIP_begin = NULL;
+	//clientIP_end = NULL;
 }
 /*
 
@@ -490,6 +517,9 @@ void esp_state_machine(void)
 	uint8_t channel_value = 0;
 	uint8_t CWJAP_OK = 0;
 	uint8_t CWJAP_FAIL = 0;
+	//char *stationIP_begin = NULL;
+	//char *stationIP_end = NULL;
+	uint8_t i = 0;  //index for channel control
 	memset(workString, 0, 32);
 	
 	while(esp_sta_current_state < ESP_STA_WAIT_COMMANDS) 
@@ -690,18 +720,97 @@ void esp_state_machine(void)
 		if(check_until_timeout("+IPD,", 1))
 		{
 			currStrPos = strstr(serialResult, "+IPD,");
-			currStrPos += 5;
-			currStrPos = strchr(currStrPos, '$');  //find start of channel byte
-			dataPtr = currStrPos + 1;
-			channel_nr = atoi(dataPtr);	// two digit channel nr (10 and 11)
-			//channel_nr = (((uint8_t)*dataPtr) - 0x30);  //save the target channel nr.*/
-			//channel_nr = (*dataPtr);  //save the target channel nr.*/
 			
-			currStrPos = strchr(currStrPos, '#');  //find start of duty cycle byte
+			esp_client_data(serialResult);
+			
+			//currStrPos += 5; //not neading it
+			//currStrPos = strchr(currStrPos, '$');  //find start of channel byte
+			currStrPos = strchr(currStrPos, ':');  //find end of client IP, Port nr
 			dataPtr = currStrPos + 1;
+			if(*dataPtr == '$')  //if we receive a commands for PWM setting - command begins with $
+			{
+				//dataPtr = currStrPos + 1;
+				dataPtr++;
+				channel_nr = (*dataPtr) - 0x30;
+				dataPtr++;
+				if(*dataPtr != '#')
+				{
+					channel_nr = (channel_nr*10)+((*dataPtr) - 0x30);
+				}
+				//channel_nr = atoi(dataPtr);	// save the target channel nr, two digit channel nr (10 and 11)
+				currStrPos = strchr(currStrPos, '#');  //find start of duty cycle byte
+				dataPtr = currStrPos + 1;
+				channel_value = *dataPtr;  //save the target duty cycle value
+				if(channel_nr < PWM_CHMAX) //decide to control single channels or channel groups
+				{
 
-			channel_value = *dataPtr;  //save the target duty cycle value
-			pwm_width_buffer[channel_nr] = channel_value; // update pwm_width buffer
+					pwm_width_buffer[channel_nr] = channel_value; // update pwm_width buffer	
+				}
+				else if(channel_nr == PWM_ALL_CH)  //all channels 0-11
+				{
+					for(i=0; i<PWM_CHMAX; i++) 
+					{
+						pwm_width_buffer[i] = channel_value;
+					}
+				}
+				else if(channel_nr == PWM_HALF1_CH)  //channel 0-5
+				{
+					for(i=0; i<PWM_CHMAX/2; i++)
+					{
+						pwm_width_buffer[i] = channel_value;
+					}
+				}
+				else if(channel_nr == PWM_HALF2_CH)  //channel 6-11
+				{
+					for(i=PWM_CHMAX/2; i<PWM_CHMAX; i++)
+					{
+						pwm_width_buffer[i] = channel_value;
+					}	
+				}
+				else 
+				{
+					//do nothing
+				}
+				
+			}
+			else if(*dataPtr == '#') //if we receive a command other than PWM setting - command begins with #
+			{  
+				dataPtr++;
+				if(*dataPtr == 'E')  //E command: get STA IP
+				{
+					if(esp_check_connection(ipCheckResult))  //esp station has IP
+					{
+						esp_aux_calc_station_ip(ipCheckResult);
+						esp_response(senderID, clientIPString, stationIPString);
+						timer_delay_ms(2000);
+					}
+				}
+				else if(*dataPtr == 'F')  //F command: activate / deactivate ESP auto connect to saved network
+				{
+					dataPtr++;
+					if(*dataPtr == '0')  //deactivate auto connect
+					{
+						send_command("AT+CWAUTOCONN=0", "OK");
+						esp_response(senderID, clientIPString, "0");
+						timer_delay_ms(2000);
+					}
+					else if(*dataPtr == '1') //deactivate auto connect
+					{
+						send_command("AT+CWAUTOCONN=1", "OK");
+						esp_response(senderID, clientIPString, "1");
+						timer_delay_ms(2000);
+					}
+					else 
+					{
+						//do nothing
+					}
+				}
+				else if(*dataPtr == 'G')  //F command
+				{
+					
+				}
+			}
+
 			
 			// if +IPD command is sent at the same time as AT+CIFSR triggered from timer
 			// then +IPD is not recognised and pwm is not updated

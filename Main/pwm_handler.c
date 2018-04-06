@@ -28,8 +28,8 @@
 #define PWM_SET_CH11(x)	set_port_c(5,x)
 
 //global buffers
-uint8_t pwm_width[CHMAX];
-volatile uint8_t pwm_width_buffer[CHMAX];
+uint8_t pwm_width[PWM_CHMAX];
+volatile uint8_t pwm_width_buffer[PWM_CHMAX];
 
 //Set PORT level true = high, false = low
 //pin = pin number to be set / cleared
@@ -87,7 +87,7 @@ void pwm_init(void)
 {
 	uint8_t i, pwm;
 	pwm = PWMDEFAULT;
-	for (i = 0; i < CHMAX; i++) // initialise all channels
+	for (i = 0; i < PWM_CHMAX; i++) // initialise all channels
 	{
 		pwm_width[i]  = pwm; // set default PWM values
 		pwm_width_buffer[i] = pwm; // set default PWM values
@@ -109,7 +109,7 @@ void pwm_update(void)
 	/* increment modulo 256 counter and update
 	the pwm_width values only when counter = 0.
 	verbose code for speed, do not replace with for...
-	last element should equal CHMAX - 1 */
+	last element should equal PWM_CHMAX - 1 */
 	//softcount = (softcount + 1) % PWM_DUTY_CYCLE_RESOLUTION;  //slower method
 	softcount++;  // faster method with if condition
 	if(softcount >= PWM_DUTY_MAX_VALUE)
