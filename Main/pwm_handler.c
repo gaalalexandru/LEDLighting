@@ -86,12 +86,12 @@ static void pwm_set_all_chanels(const bool level)
 
 void pwm_save_default_dutycycle(uint8_t u8duty)
 {
-	eeprom_write_byte(PWM_DEFAULT_SETTING_ADDR, u8duty);
+	eeprom_write_byte(EEL_DEFAULT_POWER, u8duty);
 }
 
 uint8_t pwm_load_default_dutycycle(void)
 {
-	return (eeprom_read_byte(PWM_DEFAULT_SETTING_ADDR));
+	return (eeprom_read_byte(EEL_DEFAULT_POWER));
 }
 
 void pwm_init(void)

@@ -11,6 +11,7 @@
 /*#include <avr/portpins.h>*/
 
 #include "eeprom_handler.h"
+
 //#include "configuration.h"
 
 void eeprom_write_byte(uint16_t u16address, uint8_t u8data)

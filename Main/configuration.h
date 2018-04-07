@@ -68,7 +68,7 @@
 #define PWM_ALL_CH (12)  //ID to controll all channels
 #define PWM_HALF1_CH (13)  //ID to control 1st half of channels 0 - 5
 #define PWM_HALF2_CH (14)  //ID to control 2nd half of channels 6 - 11
-#define PWM_DEFAULT_SETTING_ADDR 0x0001
+
 //////////////////////////////////////////////////////////////////////////
 //						WIFI & ESP CONFIGURATIONS						//
 //////////////////////////////////////////////////////////////////////////					

@@ -757,42 +757,59 @@ void esp_state_machine(void)
 			else if(*dataPtr == '#') //if we receive a command other than PWM setting - command begins with #
 			{  
 				dataPtr++;
-				if(*dataPtr == 'E')  //E command: get STA IP
+				switch (*dataPtr)
 				{
-					if(esp_check_connection(ipCheckResult))  //esp station has IP
-					{
-						esp_aux_calc_station_ip(ipCheckResult);
-						esp_response(senderID, clientIPString, stationIPString);
-						timer_delay_ms(2000);
-					}
-				}
-				else if(*dataPtr == 'F')  //F command: activate / deactivate ESP auto connect to saved network
-				{
-					dataPtr++;
-					if(*dataPtr == '0')  //deactivate auto connect
-					{
-						send_command("AT+CWAUTOCONN=0", "OK");
-						esp_response(senderID, clientIPString, "0");
-						timer_delay_ms(2000);
-					}
-					else if(*dataPtr == '1') //deactivate auto connect
-					{
-						send_command("AT+CWAUTOCONN=1", "OK");
-						esp_response(senderID, clientIPString, "1");
-						timer_delay_ms(2000);
-					}
-					else 
-					{
+					case 'E':  //E command: get STA IP
+						if(esp_check_connection(ipCheckResult))  //esp station has IP
+						{
+							esp_aux_calc_station_ip(ipCheckResult);
+							esp_response(senderID, clientIPString, stationIPString);
+							timer_delay_ms(2000);
+						}
+					break;
+					
+					case 'F':  //F command: activate / deactivate ESP auto connect to saved network
+						dataPtr++;
+						if(*dataPtr == '0')  //deactivate auto connect
+						{
+							send_command("AT+CWAUTOCONN=0", "OK");
+							esp_response(senderID, clientIPString, "0");
+							timer_delay_ms(2000);
+						}
+						else if(*dataPtr == '1') //activate auto connect
+						{
+							send_command("AT+CWAUTOCONN=1", "OK");
+							esp_response(senderID, clientIPString, "1");
+							timer_delay_ms(2000);
+						}
+						else{ /*do nothing*/ }				
+					break;
+					
+					case 'G':  //G command: set default PWM (will be stored in EEPROM)
+						dataPtr++;
+						pwm_save_default_dutycycle((uint8_t)*dataPtr);
+						esp_response(senderID, clientIPString, dataPtr);
+						timer_delay_ms(2000);					
+					break;
+					
+					case 'H':  //H command: set startup animation
+						dataPtr++;
+					break;
+					
+					case 'I':  //I command: set no network notification
+						dataPtr++;
+					break;
+									
+					case 'J':  //J command: set no network notification power
+						dataPtr++;
+					break;
+									
+					default:
 						//do nothing
-					}
+					break;
 				}
-				else if(*dataPtr == 'G')  //G command: set default PWM (will be stored in EEPROM)
-				{
-					dataPtr++;				
-					pwm_save_default_dutycycle((uint8_t)*dataPtr);
-					esp_response(senderID, clientIPString, dataPtr);
-					timer_delay_ms(2000);
-				}
+
+
 			}
 
 			

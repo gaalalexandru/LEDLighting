@@ -152,6 +152,9 @@
     <Compile Include="eeprom_handler.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="eeprom_layout.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="manual_control.c">
       <SubType>compile</SubType>
     </Compile>
