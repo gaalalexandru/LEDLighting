@@ -2,13 +2,14 @@
  * pwm_handler.c
  *
  * Created: 10/10/2017 10:30:14 PM
- *  Author: Gaal Alexandru
+ *  Author: Gaal Alexandru, Bogdan Rat
  */ 
 #include <stdbool.h>
 #include <stdint.h>
 #include <avr/io.h>
 #include <avr/portpins.h>
 
+#include "eeprom_handler.h"
 #include "pwm_handler.h"
 #include "configuration.h"
 
@@ -83,11 +84,22 @@ static void pwm_set_all_chanels(const bool level)
 	PORTC = (level << PIN0) | (level << PIN1) | (level << PIN2) | (level << PIN3) | (level << PIN4) | (level << PIN5);
 }
 
+void pwm_save_default_dutycycle(uint8_t u8duty)
+{
+	eeprom_write_byte(PWM_DEFAULT_SETTING_ADDR, u8duty);
+}
+
+uint8_t pwm_load_default_dutycycle(void)
+{
+	return (eeprom_read_byte(PWM_DEFAULT_SETTING_ADDR));
+}
+
 void pwm_init(void)
 {
 	uint8_t i, pwm;
-	pwm = PWMDEFAULT;
+	pwm = pwm_load_default_dutycycle();
 	for (i = 0; i < PWM_CHMAX; i++) // initialise all channels
+
 	{
 		pwm_width[i]  = pwm; // set default PWM values
 		pwm_width_buffer[i] = pwm; // set default PWM values
@@ -96,17 +108,12 @@ void pwm_init(void)
 	DDRD |= 0xE0;  //Set output pin 5, 6, 7 of port D
 	DDRC |= 0x3F;  //Set output pin 0, 1, 2, 3, 4, 5 of port C
 	pwm_set_all_chanels(false);
-
 }
 
 void pwm_update(void)
 {	
-	#if USE_DEBUGPIN
-	PORTC = 0xFF;
-	#endif //USE_DEBUGPIN
-	//static uint8_t softcount = 0xFF;
 	static uint8_t softcount = PWM_DUTY_CYCLE_RESET_VALUE;
-	/* increment modulo 256 counter and update
+	/* increment counter and update
 	the pwm_width values only when counter = 0.
 	verbose code for speed, do not replace with for...
 	last element should equal PWM_CHMAX - 1 */
@@ -132,11 +139,6 @@ void pwm_update(void)
 		pwm_width[10] = pwm_width_buffer[10];
 		pwm_width[11] = pwm_width_buffer[11];
 		
-		//current method fast enough and can check 0% channel setting
-		//pwm_set_all_chaels function is not needed for the moment
-		//has the drawback of not being able to set duty cycle 0%
-		//pwm_set_all_chanels(true);
-		//(pwm_width[0] > 0x30) or (pwm_width[0] != 0x30)
 		PWM_SET_CH0((pwm_width[0] > 0x30));
 		PWM_SET_CH1((pwm_width[1] > 0x30));
 		PWM_SET_CH2((pwm_width[2] > 0x30));
@@ -180,10 +182,5 @@ void pwm_update(void)
 		if (pwm_width[11] == softcount)
 			PWM_SET_CH11(false);
 	}
-	
-	#if USE_DEBUGPIN
-	PORTC = 0x00;
-	#endif //USE_DEBUGPIN
 }
 
-				

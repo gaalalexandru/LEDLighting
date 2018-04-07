@@ -21,7 +21,10 @@ enum pwm_channels
 	pwm_channel_numbers
 	};*/
 
+void pwm_save_default_dutycycle(uint8_t u8duty);
+uint8_t pwm_load_default_dutycycle(void);
 void pwm_init(void);
 void pwm_update(void);
+
 
 #endif /* PWM_HANDLER_H_ */

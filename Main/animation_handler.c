@@ -43,7 +43,8 @@ void animation_setallchannels(const bool level)
 	{
 		if(level)
 		{
-			pwm_width_buffer[i] = NOCONNECTION_ANIMATION_DEFAULTPWM;
+			//pwm_width_buffer[i] = NOCONNECTION_ANIMATION_DEFAULTPWM;
+			pwm_width_buffer[i] = pwm_load_default_dutycycle();
 		}
 		else
 		{

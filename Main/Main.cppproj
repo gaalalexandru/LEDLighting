@@ -146,6 +146,12 @@
     <Compile Include="configuration.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="eeprom_handler.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="eeprom_handler.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="manual_control.c">
       <SubType>compile</SubType>
     </Compile>

@@ -16,8 +16,8 @@
 //////////////////////////////////////////////////////////////////////////
 #define STARTUP_ANIMATION_FUNCTION	(1)	//toggle startup animation
 #define STARTUP_ANIMATION_DEFAULTPWM	(0x35)	//set startup animation pwm target
-#define STARTUP_ANIMATION_MODE	(1)	//1 = starts one led strip one after another; 2 = start all led strips with increasing intensity
-#define NOCONNECTION_ANIMATION_FUNCTION	(1)	// toggle noconnection animation
+#define STARTUP_ANIMATION_MODE	(0)	//1 = starts one led strip one after another; 2 = start all led strips with increasing intensity
+#define NOCONNECTION_ANIMATION_FUNCTION	(0)	// toggle noconnection animation
 #define NOCONNECTION_ANIMATION_DEFAULTPWM	(0x31)	// set noconnection animation pwm target
 
 //////////////////////////////////////////////////////////////////////////
@@ -68,6 +68,7 @@
 #define PWM_ALL_CH (12)  //ID to controll all channels
 #define PWM_HALF1_CH (13)  //ID to control 1st half of channels 0 - 5
 #define PWM_HALF2_CH (14)  //ID to control 2nd half of channels 6 - 11
+#define PWM_DEFAULT_SETTING_ADDR 0x0001
 //////////////////////////////////////////////////////////////////////////
 //						WIFI & ESP CONFIGURATIONS						//
 //////////////////////////////////////////////////////////////////////////					
@@ -78,7 +79,6 @@
 //#define WIFI_SSID_PASSWORD	"\"FELINVEST\",\"1234qwe$\"\r\n"			/*232246454C494E56455354222C223132333471776524220D0A*/
 #define WIFI_SSID_PASSWORD	"\"BogdanMobile\",\"bogdan123\"\r\n" 		/*2322426F6764616E4D6F62696C65222C22626F6764616E313233220D0A*/
 //#define WIFI_SSID_PASSWORD		"Blank"
-
 #define WIFI_CHECKCONNECTION_FUNCTION	(10)	//interval in seconds between connection checks; 0 = off
 #define WIFI_CHECKCONNECTION_ATTEMPTS (3)	//retry connection attempts
 

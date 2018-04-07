@@ -2,7 +2,7 @@
  * wifi_handler.c
  *
  * Created: 10/17/2017 9:57:41 PM
- *  Author: Gaal Alexandru
+ *  Author: Gaal Alexandru, Bogdan Rat
  */ 
 //Wifi module type: ESP8266
 
@@ -16,6 +16,7 @@
 #include "timer_handler.h"
 #include "status_led.h"
 #include "animation_handler.h"
+#include "pwm_handler.h"
 
 // Pins have to be digital output
 // CH_PD: Chip enable. Keep it on high (3.3V) for normal operation
@@ -160,7 +161,7 @@ static uint8_t send_command(char *sentCommand, char *compareWord)
 	return check_until_timeout(compareWord, 1);
 }
 
-//helper function that extracts client ID and IP
+//helper function that extracts station IP
 //extracted data is stored in global variables
 inline static void esp_aux_calc_station_ip(char *workString)
 {
@@ -175,7 +176,7 @@ inline static void esp_aux_calc_station_ip(char *workString)
 
 //helper function that extracts client ID and IP
 //extracted data is stored in global variables
-inline static void esp_client_data(char *workString)
+inline static void esp_aux_client_data(char *workString)
 {
 	char *clientIP_begin = NULL;
 	char *clientIP_end = NULL;
@@ -191,11 +192,11 @@ inline static void esp_client_data(char *workString)
 // ID is the connection number
 // destination is the IP to which data is sent
 // message is what is sent
-inline static void esp_response(uint8_t ID, char *destination, char *message)
+static void esp_response(uint8_t ID, char *destination, char *message)
 {
-	//AleGaa Could the next block be deactivated because we will use persistent TCP connection when communicating with ESP AP
-	//However strange behavior was observed, sometimes when joining the router wifi network, the connection is closed
-	#if 1  
+	//AleGaa The next block is deactivated because we will use persistent TCP connection when communicating with ESP AP
+	//Note: Rarely strange behavior was observed, sometimes when joining the router wifi network, the connection is closed
+	#if 0  
 	uart_send_string("AT+CIPSTART=");
 	uart_send_udec(ID);
 	uart_send_string(",\"TCP\"");
@@ -336,8 +337,6 @@ void esp_wifi_setup(void)
 	uint8_t CWJAP_FAIL = 0;
 	
 	char *currStrPos = NULL;
-	//char *stationIP_begin = NULL;
-	//char *stationIP_end = NULL;
 	//char *clientIP_begin = NULL;
 	//char *clientIP_end = NULL;
 	
@@ -414,7 +413,7 @@ void esp_wifi_setup(void)
 					//+IPD,0,25,192.168.4.2,50511:#"FELINVEST","1234qwe$"
 					currStrPos = strstr(serialResult, "+IPD,");  //find start of response
 					currStrPos += 5;	// jump to ID of sender
-					esp_client_data(currStrPos);				
+					esp_aux_client_data(currStrPos);				
 					currStrPos = strchr(currStrPos, '#');  //find start of SSID
 					currStrPos++;
 					strcpy(workString, currStrPos);		// at this point, workString contains SSID and PASS
@@ -454,13 +453,6 @@ void esp_wifi_setup(void)
 					if(esp_check_connection(ipCheckResult))  //esp station has IP
 					{
 						esp_aux_calc_station_ip(ipCheckResult);
-						/*
-						stationIP_begin = strstr(ipCheckResult, "STAIP");
-						stationIP_begin += 7;
-						stationIP_end = strchr(stationIP_begin, 0x22);	// ' " '
-						uart_flush();	
-						strncpy(stationIPString, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
-						*/
 						esp_response(senderID, clientIPString, stationIPString);
 						timer_delay_ms(2000);
 						
@@ -497,15 +489,8 @@ void esp_wifi_setup(void)
 		//maybe start state machine???
 		esp_sta_current_state = ESP_STA_START_TCP_SERVER;
 	}
-	
-	//stationIP_begin = NULL;
-	//stationIP_end = NULL;
-	//clientIP_begin = NULL;
-	//clientIP_end = NULL;
 }
-/*
 
-*/
 void esp_state_machine(void)
 {
 	char ipCheckResult[SERIAL_RESULT_BUFFER_SIZE];
@@ -517,8 +502,6 @@ void esp_state_machine(void)
 	uint8_t channel_value = 0;
 	uint8_t CWJAP_OK = 0;
 	uint8_t CWJAP_FAIL = 0;
-	//char *stationIP_begin = NULL;
-	//char *stationIP_end = NULL;
 	uint8_t i = 0;  //index for channel control
 	memset(workString, 0, 32);
 	
@@ -721,46 +704,44 @@ void esp_state_machine(void)
 		{
 			currStrPos = strstr(serialResult, "+IPD,");
 			
-			esp_client_data(serialResult);
+			esp_aux_client_data(serialResult);
 			
 			//currStrPos += 5; //not neading it
 			//currStrPos = strchr(currStrPos, '$');  //find start of channel byte
 			currStrPos = strchr(currStrPos, ':');  //find end of client IP, Port nr
 			dataPtr = currStrPos + 1;
-			if(*dataPtr == '$')  //if we receive a commands for PWM setting - command begins with $
+			if(*dataPtr == '$')  //if we receive a command for PWM setting - command begins with $
 			{
-				//dataPtr = currStrPos + 1;
 				dataPtr++;
 				channel_nr = (*dataPtr) - 0x30;
 				dataPtr++;
+				//check if next character is start of duty cycle byte (#) or still channel nr.
 				if(*dataPtr != '#')
 				{
 					channel_nr = (channel_nr*10)+((*dataPtr) - 0x30);
 				}
-				//channel_nr = atoi(dataPtr);	// save the target channel nr, two digit channel nr (10 and 11)
 				currStrPos = strchr(currStrPos, '#');  //find start of duty cycle byte
 				dataPtr = currStrPos + 1;
 				channel_value = *dataPtr;  //save the target duty cycle value
 				if(channel_nr < PWM_CHMAX) //decide to control single channels or channel groups
 				{
-
 					pwm_width_buffer[channel_nr] = channel_value; // update pwm_width buffer	
 				}
-				else if(channel_nr == PWM_ALL_CH)  //all channels 0-11
+				else if(channel_nr == PWM_ALL_CH)  //12: all channels 0-11
 				{
 					for(i=0; i<PWM_CHMAX; i++) 
 					{
 						pwm_width_buffer[i] = channel_value;
 					}
 				}
-				else if(channel_nr == PWM_HALF1_CH)  //channel 0-5
+				else if(channel_nr == PWM_HALF1_CH)  //13: channel 0-5
 				{
 					for(i=0; i<PWM_CHMAX/2; i++)
 					{
 						pwm_width_buffer[i] = channel_value;
 					}
 				}
-				else if(channel_nr == PWM_HALF2_CH)  //channel 6-11
+				else if(channel_nr == PWM_HALF2_CH)  //14: channel 6-11
 				{
 					for(i=PWM_CHMAX/2; i<PWM_CHMAX; i++)
 					{
@@ -805,15 +786,18 @@ void esp_state_machine(void)
 						//do nothing
 					}
 				}
-				else if(*dataPtr == 'G')  //F command
+				else if(*dataPtr == 'G')  //G command: set default PWM (will be stored in EEPROM)
 				{
-					
+					dataPtr++;				
+					pwm_save_default_dutycycle((uint8_t)*dataPtr);
+					esp_response(senderID, clientIPString, dataPtr);
+					timer_delay_ms(2000);
 				}
 			}
 
 			
 			// if +IPD command is sent at the same time as AT+CIFSR triggered from timer
-			// then +IPD is not recognised and pwm is not updated
+			// then +IPD is not recognized and pwm is not updated
 			// client would have to send the command again
 			uart_flush();
 		}

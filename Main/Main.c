@@ -19,7 +19,7 @@
 
 int main(void)
 {
-	cli();  //Disable interrupts*/
+	cli();  //Disable interrupts
 
 	#if USE_DEBUGPIN
 	DDRC = 0xFF;
