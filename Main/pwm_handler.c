@@ -12,6 +12,7 @@
 #include "eeprom_handler.h"
 #include "pwm_handler.h"
 #include "configuration.h"
+#include "animation_handler.h"
 
 //macros to set pin assigned as pwm channels
 //if layout changes update the macros also
@@ -84,9 +85,19 @@ static void pwm_set_all_chanels(const bool level)
 	PORTC = (level << PIN0) | (level << PIN1) | (level << PIN2) | (level << PIN3) | (level << PIN4) | (level << PIN5);
 }
 
-void pwm_save_default_dutycycle(uint8_t u8duty)
+uint8_t pwm_save_default_dutycycle(uint8_t u8duty)
 {
-	eeprom_write_byte(EEL_DEFAULT_POWER, u8duty);
+	uint8_t u8data_check;
+	if((u8duty>=PWM_DUTY_CYCLE_RESET_VALUE)&&(u8duty<=PWM_DUTY_MAX_VALUE))
+	{
+		eeprom_write_byte(EEL_DEFAULT_POWER, u8duty);
+		u8data_check = 1;
+	}
+	else
+	{
+		u8data_check = 0;
+	}
+	return u8data_check;
 }
 
 uint8_t pwm_load_default_dutycycle(void)
@@ -96,13 +107,20 @@ uint8_t pwm_load_default_dutycycle(void)
 
 void pwm_init(void)
 {
-	uint8_t i, pwm;
-	pwm = pwm_load_default_dutycycle();
-	for (i = 0; i < PWM_CHMAX; i++) // initialise all channels
-
+	uint8_t i = 0; 
+	uint8_t pwm = 0;
+	uint8_t u8anim = 0;
+	
+	u8anim = animation_load_startup_anim();
+	if(u8anim == ANIMATION_SUA_NONE)
+	//if no startup animation is coded, just simply start LEDs
 	{
-		pwm_width[i]  = pwm; // set default PWM values
-		pwm_width_buffer[i] = pwm; // set default PWM values
+		pwm = pwm_load_default_dutycycle();
+		for (i = 0; i < PWM_CHMAX; i++) // initialize all channels
+		{
+			pwm_width[i]  = pwm; // set default PWM values
+			pwm_width_buffer[i] = pwm; // set default PWM values
+		}
 	}
 	DDRB |= 0x07;  //Set output pin 0, 1, 2 of port B
 	DDRD |= 0xE0;  //Set output pin 5, 6, 7 of port D

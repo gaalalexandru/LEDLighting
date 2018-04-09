@@ -275,7 +275,7 @@ static inline uint8_t esp_check_connection(char ipCheckResult[])
 	
 	uart_flush();
 	uart_send_string("AT+CIFSR\r\n");
-	timer_delay_ms(100);
+	timer_delay_ms(200);
 	
 	do
 	{
@@ -787,32 +787,64 @@ void esp_state_machine(void)
 					
 					case 'G':  //G command: set default PWM (will be stored in EEPROM)
 						dataPtr++;
-						pwm_save_default_dutycycle((uint8_t)*dataPtr);
-						esp_response(senderID, clientIPString, dataPtr);
+						if(pwm_save_default_dutycycle((uint8_t)*dataPtr))
+						{
+							esp_response(senderID, clientIPString, strcat(dataPtr,"->OK"));
+						}
+						else
+						{
+							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
+						}
+						
 						timer_delay_ms(2000);					
 					break;
 					
 					case 'H':  //H command: set startup animation
 						dataPtr++;
+						if(animation_save_startup_anim((uint8_t)*dataPtr))
+						{
+							esp_response(senderID, clientIPString, strcat(dataPtr,"->OK"));
+						}
+						else
+						{
+							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
+						}
+						timer_delay_ms(2000);
 					break;
 					
-					case 'I':  //I command: set no network notification
+					case 'I':  //I command: set no network animation
 						dataPtr++;
+						if(animation_save_no_netw_anim((uint8_t)*dataPtr))
+						{
+							esp_response(senderID, clientIPString, strcat(dataPtr,"->OK"));
+						}
+						else
+						{
+							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
+						}
+						timer_delay_ms(2000);
 					break;
 									
 					case 'J':  //J command: set no network notification power
 						dataPtr++;
+						if(animation_save_no_netw_power((uint8_t)*dataPtr))
+						{
+							esp_response(senderID, clientIPString, strcat(dataPtr,"->OK"));
+						}
+						else
+						{
+							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
+						}
+						timer_delay_ms(2000);
 					break;
 									
 					default:
 						//do nothing
 					break;
 				}
-
-
 			}
 
-			
+		
 			// if +IPD command is sent at the same time as AT+CIFSR triggered from timer
 			// then +IPD is not recognized and pwm is not updated
 			// client would have to send the command again

@@ -73,20 +73,5 @@ int main(void)
 			esp_state_machine();
 			#endif //ESP_MANUAL_CONTROL
 		#endif //WIRELESS_CONTROL
-		
-		#if 0
-		timer_delay_ms(1000);
-		PORTC ^= 0xFF;
-		uart_send_udec(timer_ms());
-		uart_newline();
-		#endif
     }
 }
-
-#if 0
-	uint8_t sreg;
-	sreg = SREG;  // Save Global Interrupt Flag
-	cli();//Disable interrupts
-	//atomic operations
-	SREG = sreg;  // Restore Global Interrupt Flag
-#endif

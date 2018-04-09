@@ -43,6 +43,6 @@ uint8_t eeprom_read_byte(uint16_t u16address)
 	/* Start eeprom read by writing EERE - Read Enable*/
 	EECR |= (1<<EERE);
 	/* Return data from data register */
-	return EEDR;
 	sei(); //Enable global interrupts
+	return EEDR;
 }

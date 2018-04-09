@@ -9,7 +9,7 @@
 #ifndef PWM_HANDLER_H_
 #define PWM_HANDLER_H_
 
-void pwm_save_default_dutycycle(uint8_t u8duty);
+uint8_t pwm_save_default_dutycycle(uint8_t u8duty);
 uint8_t pwm_load_default_dutycycle(void);
 
 void pwm_init(void);

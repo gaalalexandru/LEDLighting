@@ -12,15 +12,6 @@
 #include <avr/portpins.h>
 
 //////////////////////////////////////////////////////////////////////////
-//							ANIMATION ACTIVATION						//
-//////////////////////////////////////////////////////////////////////////
-#define STARTUP_ANIMATION_FUNCTION	(1)	//toggle startup animation
-#define STARTUP_ANIMATION_DEFAULTPWM	(0x35)	//set startup animation pwm target
-#define STARTUP_ANIMATION_MODE	(0)	//1 = starts one led strip one after another; 2 = start all led strips with increasing intensity
-#define NOCONNECTION_ANIMATION_FUNCTION	(0)	// toggle noconnection animation
-#define NOCONNECTION_ANIMATION_DEFAULTPWM	(0x31)	// set noconnection animation pwm target
-
-//////////////////////////////////////////////////////////////////////////
 //							FUNCTIONALITY ACTIVATION					//
 //////////////////////////////////////////////////////////////////////////
 #define ESP_MANUAL_CONTROL	(0) //allows manually to send AT commands to ESP via terminal
@@ -117,5 +108,31 @@
 #define STATUS_LED_PIN		PIN4
 // #define INIT_STATUS_LED		(DDRB |= (1 << PIN2))
 // #define TOGGLE_STATUS_LED	(PORTB ^= (1 << PIN2))
+
+//////////////////////////////////////////////////////////////////////////
+//						ANIMATION CONFIGURATIONS						//
+//////////////////////////////////////////////////////////////////////////
+#define ANIMATION_SUA_NONE		(0x30)
+#define ANIMATION_SUA_CIRCLE	(0x31)
+#define ANIMATION_SUA_SMOOTH	(0x32)
+
+#define ANIMATION_NONET_NONE	(0x30)
+#define ANIMATION_NONET_BLINK	(0x31)
+#define ANIMATION_NONET_XDIM	(0x32)  //LEDs dimmed to X%
+
+#define STARTUP_ANIMATION_FUNCTION	(1)	//toggle startup animation
+
+#define NOCONNECTION_ANIMATION_FUNCTION	(0)	// toggle noconnection animation
+#define NOCONNECTION_ANIMATION_DEFAULTPWM	(0x31)	// set noconnection animation pwm target
+
+
+//////////////////////////////////////////////////////////////////////////
+//								EEPROM LAYOUT							//
+//////////////////////////////////////////////////////////////////////////
+#define EEL_FIRST_START			(0X0000)	//0=Yes, 1=No
+#define EEL_STARTUP_ANIMATION	(0x0001)	//0=None, 1=circle, 2=smooth
+#define EEL_DEFAULT_POWER		(0x0002)	//0x30=0%, 0x44=100%
+#define EEL_NO_NET_NOTIFICATION	(0x0003)	//0=None, 1=blink, 2=XX% power
+#define EEL_NO_NET_POWER		(0x0004)	//0x30=0%, 0x44=100%
 
 #endif /* CONFIGURATION_H_ */
