@@ -11,8 +11,7 @@
 /*#include <avr/portpins.h>*/
 
 #include "eeprom_handler.h"
-
-//#include "configuration.h"
+#include "configuration.h"
 
 void eeprom_write_byte(uint16_t u16address, uint8_t u8data)
 {
@@ -46,3 +45,35 @@ uint8_t eeprom_read_byte(uint16_t u16address)
 	sei(); //Enable global interrupts
 	return EEDR;
 }
+
+uint8_t eeprom_load_id(void)
+{
+	uint8_t u8dev_id = 0;
+	u8dev_id = eeprom_read_byte(EEL_DEVICE_ID);
+	if((u8dev_id >= EEPROM_MIN_ID) && (u8dev_id <= EEPROM_MAX_ID))
+	{
+		//do nothing 
+	}
+	else 
+	{
+		u8dev_id = 0;
+	}
+	return u8dev_id;
+}
+
+uint8_t eeprom_save_id(uint8_t u8dev_id)
+{
+	uint8_t u8response = 0;
+
+	if((u8dev_id >= EEPROM_MIN_ID) && (u8dev_id <= EEPROM_MAX_ID))
+	{
+		eeprom_write_byte(EEL_DEVICE_ID, u8dev_id);
+		u8response = 1;
+	}
+	else
+	{
+		u8response = 0;
+	}
+	return u8response;
+}
+

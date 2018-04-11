@@ -17,6 +17,7 @@
 #include "status_led.h"
 #include "animation_handler.h"
 #include "pwm_handler.h"
+#include "eeprom_handler.h"
 
 // Pins have to be digital output
 // CH_PD: Chip enable. Keep it on high (3.3V) for normal operation
@@ -487,6 +488,7 @@ void esp_wifi_setup(void)
 	if (esp_ap_current_state == ESP_AP_CONFIG_SUCCESS)
 	{
 		//maybe start state machine???
+		//save the
 		esp_sta_current_state = ESP_STA_START_TCP_SERVER;
 	}
 }
@@ -499,10 +501,11 @@ void esp_state_machine(void)
 	static uint8_t noconnection_count = 0;
 	char *currStrPos, *dataPtr;
 	uint8_t channel_nr = 0;
-	uint8_t channel_value = 0;
 	uint8_t CWJAP_OK = 0;
 	uint8_t CWJAP_FAIL = 0;
 	uint8_t i = 0;  //index for channel control
+	uint8_t u8dev_id = 0;
+	
 	memset(workString, 0, 32);
 	
 	while(esp_sta_current_state < ESP_STA_WAIT_COMMANDS) 
@@ -721,31 +724,30 @@ void esp_state_machine(void)
 					channel_nr = (channel_nr*10)+((*dataPtr) - 0x30);
 				}
 				currStrPos = strchr(currStrPos, '#');  //find start of duty cycle byte
-				dataPtr = currStrPos + 1;
-				channel_value = *dataPtr;  //save the target duty cycle value
-				if(channel_nr < PWM_CHMAX) //decide to control single channels or channel groups
+				dataPtr = currStrPos + 1;  //go to duty cycle byte
+				if(*dataPtr < PWM_CHMAX) //decide to control single channels or channel groups
 				{
-					pwm_width_buffer[channel_nr] = channel_value; // update pwm_width buffer	
+					pwm_width_buffer[channel_nr] = *dataPtr; // update pwm_width buffer	
 				}
 				else if(channel_nr == PWM_ALL_CH)  //12: all channels 0-11
 				{
 					for(i=0; i<PWM_CHMAX; i++) 
 					{
-						pwm_width_buffer[i] = channel_value;
+						pwm_width_buffer[i] = *dataPtr;
 					}
 				}
 				else if(channel_nr == PWM_HALF1_CH)  //13: channel 0-5
 				{
 					for(i=0; i<PWM_CHMAX/2; i++)
 					{
-						pwm_width_buffer[i] = channel_value;
+						pwm_width_buffer[i] = *dataPtr;
 					}
 				}
 				else if(channel_nr == PWM_HALF2_CH)  //14: channel 6-11
 				{
 					for(i=PWM_CHMAX/2; i<PWM_CHMAX; i++)
 					{
-						pwm_width_buffer[i] = channel_value;
+						pwm_width_buffer[i] = *dataPtr;
 					}	
 				}
 				else 
@@ -824,7 +826,7 @@ void esp_state_machine(void)
 						}
 						timer_delay_ms(2000);
 					break;
-									
+
 					case 'J':  //J command: set no network notification power
 						dataPtr++;
 						if(animation_save_no_netw_power((uint8_t)*dataPtr))
@@ -837,14 +839,39 @@ void esp_state_machine(void)
 						}
 						timer_delay_ms(2000);
 					break;
-									
+
+					case 'K': //K command:get the device ID from eeprom
+						u8dev_id = eeprom_load_id();
+						if(u8dev_id != EEPROM_INVALID_ID)
+						{
+							esp_response(senderID, clientIPString, (char*)&u8dev_id /*strcat("LL",&u8dev_id)*/);
+						}
+						else
+						{
+							esp_response(senderID, clientIPString, "Invalid ID");
+						}
+						timer_delay_ms(2000);
+					break;
+
+					case 'L': //L command:save the device ID to eeprom
+						dataPtr++;
+						if(eeprom_save_id((uint8_t)*dataPtr))
+						{
+							esp_response(senderID, clientIPString, strcat(dataPtr,"->OK"));
+						}
+						else
+						{
+							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
+						}
+						timer_delay_ms(2000);
+					break;
+
 					default:
 						//do nothing
 					break;
 				}
 			}
 
-		
 			// if +IPD command is sent at the same time as AT+CIFSR triggered from timer
 			// then +IPD is not recognized and pwm is not updated
 			// client would have to send the command again
@@ -864,7 +891,6 @@ void esp_state_machine(void)
 		}
 		#endif	//WIFI_CHECKCONNECTION_FUNCTION
 		#endif
-		
-		
 	}
 }
+
