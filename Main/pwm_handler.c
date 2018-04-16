@@ -202,3 +202,48 @@ void pwm_update(void)
 	}
 }
 
+uint8_t pwm_wifi_update(uint8_t channel_nr, uint8_t duty_cycle)
+{
+	uint8_t response = 0;
+	uint8_t i = 0;
+	if((duty_cycle >= PWM_DUTY_CYCLE_RESET_VALUE) && (duty_cycle <= PWM_DUTY_MAX_VALUE) && (channel_nr >= 0)  && (channel_nr <= PWM_HALF2_CH))  //check for valid inputs
+	{
+		if(channel_nr < PWM_CHMAX) //decide to control single channels or channel groups
+		{
+			pwm_width_buffer[channel_nr] = duty_cycle; // update pwm_width buffer
+		}
+		else if(channel_nr == PWM_ALL_CH)  //12: all channels 0-11
+		{
+			for(i=0; i<PWM_CHMAX; i++)
+			{
+				pwm_width_buffer[i] = duty_cycle;
+			}
+		}
+		else if(channel_nr == PWM_HALF1_CH)  //13: channel 0-5
+		{
+			for(i=0; i<PWM_CHMAX/2; i++)
+			{
+				pwm_width_buffer[i] = duty_cycle;
+			}
+		}
+		else if(channel_nr == PWM_HALF2_CH)  //14: channel 6-11
+		{
+			for(i=PWM_CHMAX/2; i<PWM_CHMAX; i++)
+			{
+				pwm_width_buffer[i] = duty_cycle;
+			}
+			
+		}
+		else
+		{
+			//do nothing
+			response = 0;
+		}
+		response = 1;
+	}
+	else
+	{
+		response = 0;
+	}
+	return response;
+}

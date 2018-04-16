@@ -14,6 +14,7 @@ uint8_t pwm_load_default_dutycycle(void);
 
 void pwm_init(void);
 void pwm_update(void);
+uint8_t pwm_wifi_update(uint8_t channel_nr, uint8_t duty_cycle);
 
 
 #endif /* PWM_HANDLER_H_ */

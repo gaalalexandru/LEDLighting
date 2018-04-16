@@ -499,12 +499,10 @@ void esp_state_machine(void)
 	char workString[32];
 	static uint8_t retry_connect = 0;
 	static uint8_t noconnection_count = 0;
-	char *currStrPos, *dataPtr;
-	uint8_t channel_nr = 0;
+	char *currStrPos, *dataPtr;	
 	uint8_t CWJAP_OK = 0;
 	uint8_t CWJAP_FAIL = 0;
-	uint8_t i = 0;  //index for channel control
-	uint8_t u8dev_id = 0;
+	uint8_t u8work_int = 0;  //uint8 for general use
 	
 	memset(workString, 0, 32);
 	
@@ -532,14 +530,6 @@ void esp_state_machine(void)
 			break;*/
 			case ESP_STA_CONNECT:
 				//Set Access Point SSID and Password
-				
-				//AleGaa: Currently SSID and password is set manually in code
-				//for future versions this will be inputed via serial interface
-				//or wifi through mobile device connecting to SoftAP of ESP
-				//feature to be implemented TODO
-				//uint8_t *wifi_credentials = strcat(WIFI_SSID,WIFI_PASSWORD);			
-				//if(send_command(strcat("AT+CWMODE=3",wifi_credentials), "OK"))
-				
 				//send_command not used, because it's necessary to wait a little longer
 				//before checking for OK response
 				CWJAP_OK = 0;
@@ -579,7 +569,6 @@ void esp_state_machine(void)
 						esp_wifi_setup();
 					}
 				}
-				
 				uart_flush();
 			break;		
 				
@@ -699,62 +688,38 @@ void esp_state_machine(void)
 	//H = HEX value of PWM channel number to be changed
 	//# = start of PWM duty cycle value character(s)
 	//DD = HEX value of PWM duty cycle for selected channel
-	//		00 = 0%, 7F = 50%, FF = 100%
 	if(esp_sta_current_state == ESP_STA_WAIT_COMMANDS) 
 	{
 		status_led_mode = connected_to_ap;
 		if(check_until_timeout("+IPD,", 1))
 		{
-			currStrPos = strstr(serialResult, "+IPD,");
-			
+			currStrPos = strstr(serialResult, "+IPD,");		
 			esp_aux_client_data(serialResult);
-			
-			//currStrPos += 5; //not neading it
-			//currStrPos = strchr(currStrPos, '$');  //find start of channel byte
 			currStrPos = strchr(currStrPos, ':');  //find end of client IP, Port nr
 			dataPtr = currStrPos + 1;
+			
 			if(*dataPtr == '$')  //if we receive a command for PWM setting - command begins with $
 			{
 				dataPtr++;
-				channel_nr = (*dataPtr) - 0x30;
+				u8work_int = (*dataPtr) - 0x30;
 				dataPtr++;
 				//check if next character is start of duty cycle byte (#) or still channel nr.
 				if(*dataPtr != '#')
 				{
-					channel_nr = (channel_nr*10)+((*dataPtr) - 0x30);
+					u8work_int = (u8work_int*10)+((*dataPtr) - 0x30);
 				}
 				currStrPos = strchr(currStrPos, '#');  //find start of duty cycle byte
 				dataPtr = currStrPos + 1;  //go to duty cycle byte
-				if(*dataPtr < PWM_CHMAX) //decide to control single channels or channel groups
+				if(pwm_wifi_update(u8work_int,  ((uint8_t)*dataPtr)))
 				{
-					pwm_width_buffer[channel_nr] = *dataPtr; // update pwm_width buffer	
+					//pwm duty cycle update was successeful (values OK)
+					esp_response(senderID, clientIPString, "OK");
 				}
-				else if(channel_nr == PWM_ALL_CH)  //12: all channels 0-11
+				else
 				{
-					for(i=0; i<PWM_CHMAX; i++) 
-					{
-						pwm_width_buffer[i] = *dataPtr;
-					}
+					esp_response(senderID, clientIPString, "Error");
 				}
-				else if(channel_nr == PWM_HALF1_CH)  //13: channel 0-5
-				{
-					for(i=0; i<PWM_CHMAX/2; i++)
-					{
-						pwm_width_buffer[i] = *dataPtr;
-					}
-				}
-				else if(channel_nr == PWM_HALF2_CH)  //14: channel 6-11
-				{
-					for(i=PWM_CHMAX/2; i<PWM_CHMAX; i++)
-					{
-						pwm_width_buffer[i] = *dataPtr;
-					}	
-				}
-				else 
-				{
-					//do nothing
-				}
-				
+				u8work_int = 0;
 			}
 			else if(*dataPtr == '#') //if we receive a command other than PWM setting - command begins with #
 			{  
@@ -766,7 +731,6 @@ void esp_state_machine(void)
 						{
 							esp_aux_calc_station_ip(ipCheckResult);
 							esp_response(senderID, clientIPString, stationIPString);
-							timer_delay_ms(2000);
 						}
 					break;
 					
@@ -776,13 +740,11 @@ void esp_state_machine(void)
 						{
 							send_command("AT+CWAUTOCONN=0", "OK");
 							esp_response(senderID, clientIPString, "0");
-							timer_delay_ms(2000);
 						}
 						else if(*dataPtr == '1') //activate auto connect
 						{
 							send_command("AT+CWAUTOCONN=1", "OK");
 							esp_response(senderID, clientIPString, "1");
-							timer_delay_ms(2000);
 						}
 						else{ /*do nothing*/ }				
 					break;
@@ -796,9 +758,7 @@ void esp_state_machine(void)
 						else
 						{
 							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
-						}
-						
-						timer_delay_ms(2000);					
+						}			
 					break;
 					
 					case 'H':  //H command: set startup animation
@@ -811,7 +771,6 @@ void esp_state_machine(void)
 						{
 							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
 						}
-						timer_delay_ms(2000);
 					break;
 					
 					case 'I':  //I command: set no network animation
@@ -824,7 +783,6 @@ void esp_state_machine(void)
 						{
 							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
 						}
-						timer_delay_ms(2000);
 					break;
 
 					case 'J':  //J command: set no network notification power
@@ -837,20 +795,18 @@ void esp_state_machine(void)
 						{
 							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
 						}
-						timer_delay_ms(2000);
 					break;
 
 					case 'K': //K command:get the device ID from eeprom
-						u8dev_id = eeprom_load_id();
-						if(u8dev_id != EEPROM_INVALID_ID)
+						u8work_int = eeprom_load_id();
+						if(u8work_int != EEPROM_INVALID_ID)
 						{
-							esp_response(senderID, clientIPString, (char*)&u8dev_id /*strcat("LL",&u8dev_id)*/);
+							esp_response(senderID, clientIPString, (char*)&u8work_int /*strcat("LL",&u8dev_id)*/);
 						}
 						else
 						{
-							esp_response(senderID, clientIPString, "Invalid ID");
+							esp_response(senderID, clientIPString, "No valid ID");
 						}
-						timer_delay_ms(2000);
 					break;
 
 					case 'L': //L command:save the device ID to eeprom
@@ -863,13 +819,14 @@ void esp_state_machine(void)
 						{
 							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
 						}
-						timer_delay_ms(2000);
 					break;
 
 					default:
 						//do nothing
 					break;
 				}
+				u8work_int = 0;  //reset
+				timer_delay_ms(2000);
 			}
 
 			// if +IPD command is sent at the same time as AT+CIFSR triggered from timer

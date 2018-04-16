@@ -26,13 +26,15 @@
 //////////////////////////////////////////////////////////////////////////
 //							CONTROLLER SELECTION						//
 //////////////////////////////////////////////////////////////////////////
-#if defined (__AVR_ATmega48PB__)
+#if defined (__AVR_ATmega48PB__)  && !defined (__AVR_ATmega8__)
  #define ATMEGA48 (1)
  #define ATMEGA8	(0)
-#elif defined (__AVR_ATmega8__)
+#elif defined (__AVR_ATmega8__)  && !defined (__AVR_ATmega48PB__)
  #define ATMEGA48 (0)
  #define ATMEGA8	(1)
-# endif
+#else
+ #error "Please specify one target controller"
+#endif  //controller selection
 
 //////////////////////////////////////////////////////////////////////////
 //							UART CONFIGURATIONS							//
