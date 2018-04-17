@@ -137,10 +137,19 @@
 #define EEL_NO_NET_NOTIFICATION	(0x0003)	//30=None, 31=blink, 32=XX% power
 #define EEL_NO_NET_POWER		(0x0004)	//0x30=0%, 0x44=100%
 #define EEL_DEVICE_ID			(0x0005)	//0x41 -> 0x5A
-#define EEL_AP_ALWAYS_ON		(0x0006)
+#define EEL_AP_ALWAYS_ON		(0x0006)	//0x30 Not always on, 0x31 Always on
+
+#define EEPROM_INITIALIZED	(0x49)  //'I' character, meaning EEPROM is initialized with default values.
+#define EEL_FACTORY_SUA		(0x30)  //No startup animation by factory settings
+#define EEL_FACTORY_POWER	(0x44)	//0x44=100% power
+#define EEL_FACTORY_NNN		(0x30)  //No network notification set to none
+#define EEL_FACTORY_NNN_PWR	(0x00)  //None, just initialize eeprom location
+#define EEL_FACTORY_ID		(0x00)  //None, just initialize eeprom location
+#define EEL_FACTORY_AP_ON	(0x31)  //AP set to be always on by factory
 
 #define EEPROM_INVALID_ID	(0)
 #define EEPROM_MIN_ID		(0x41)
 #define EEPROM_MAX_ID		(0x5A)
+
 
 #endif /* CONFIGURATION_H_ */
