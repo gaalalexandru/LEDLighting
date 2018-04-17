@@ -16,9 +16,12 @@
 #include "manual_control.h"
 #include "status_led.h"
 #include "animation_handler.h"
+#include "eeprom_handler.h"
 
 int main(void)
 {
+	eeprom_init();
+	
 	cli();  //Disable interrupts
 
 	#if USE_DEBUGPIN
@@ -47,7 +50,6 @@ int main(void)
 	#endif  //LIGHTING_FUNCTIN
 	
 	sei();  // enable global interrupts
-	//uart_send_string("\r\n interrupts enabled\r\n ");
 	
 	
 	
@@ -55,6 +57,8 @@ int main(void)
 	esp_init();
 	esp_check_current_setup();
 	#endif //WIRELESS_CONTROL
+	
+	
 	
 	#if STARTUP_ANIMATION_FUNCTION
 	animation_init();

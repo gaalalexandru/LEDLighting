@@ -49,7 +49,6 @@
 #define ESP_STA_CHECK_CONNECTION	7	//if changes occure, update timer_handler.c also
 #define ESP_STA_WAIT_COMMANDS		8
 
-#define ESP_CHECK_STATUS (0)
 #define ESP_FORCE_WIFI_SETUP (0)
 
 #define true  1
@@ -260,8 +259,9 @@ void esp_init(void)
 
 // fills parameter with the response for AT+CIFSR command
 // and also returns true/false if station has/hasn't got an IP
-static inline uint8_t esp_check_connection(char ipCheckResult[])
+static inline uint8_t esp_check_connection(char workString[])
 {
+	
 	/*
 	To check if we are already connected to a wifi network:
 	Send command to ESP "AT+CIFSR"
@@ -271,8 +271,8 @@ static inline uint8_t esp_check_connection(char ipCheckResult[])
 	If string contains "STAIP,\"0.0.", pointer off strstr() not NULL,
 	the condition will be false, esp has no IP.
 	*/
-	memset(ipCheckResult, 0, SERIAL_RESULT_BUFFER_SIZE-1);
-	uint8_t ipResultIndex = 0;  // index for buffer, and character counter.
+	memset(workString, 0, SERIAL_RESULT_BUFFER_SIZE-1);
+	uint8_t u8index = 0;  // index for buffer, and character counter.
 	
 	uart_flush();
 	uart_send_string("AT+CIFSR\r\n");
@@ -280,17 +280,17 @@ static inline uint8_t esp_check_connection(char ipCheckResult[])
 	
 	do
 	{
-		ipCheckResult[ipResultIndex] = uart_get_char();
-		if((ipCheckResult[ipResultIndex] != '\n')  && (ipCheckResult[ipResultIndex] != '\r'))
+		workString[u8index] = uart_get_char();
+		if((workString[u8index] != '\n')  && (workString[u8index] != '\r'))
 		{
-			ipResultIndex++;
+			u8index++;
 		}
 	}
-	while (strstr(ipCheckResult,"STAMAC") == NULL);
+	while (strstr(workString,"STAMAC") == NULL);
 	
 	uart_flush();
 	
-	if(strstr(ipCheckResult, "STAIP,\"0.0.") == NULL)
+	if(strstr(workString, "STAIP,\"0.0.") == NULL)
 	//if return string doesn't contain 0.0. esp has IP
 	{
 		return true;  
@@ -336,10 +336,7 @@ void esp_wifi_setup(void)
 	char workString[32];
 	uint8_t CWJAP_OK = 0;
 	uint8_t CWJAP_FAIL = 0;
-	
 	char *currStrPos = NULL;
-	//char *clientIP_begin = NULL;
-	//char *clientIP_end = NULL;
 	
 	esp_ap_current_state = ESP_AP_INIT;
 	bEspIsInit = false;
@@ -460,15 +457,6 @@ void esp_wifi_setup(void)
 						//bEspIsConnected = true;
 						esp_ap_current_state = ESP_AP_CONFIG_SUCCESS;
 					}
-					// not needed here since this is treated below in (FAIL == 1) condition 
-					// and there two possible replies, OK and FAIL
-					#if 0
-					else
-					{
-						esp_response(senderID, clientIPString, "Could not connect");
-						esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
-					}
-					#endif
 				}
 				
 				// if esp failed in connecting to ssid and pass provided, go back to receive ssid and pass state
@@ -487,8 +475,6 @@ void esp_wifi_setup(void)
 	
 	if (esp_ap_current_state == ESP_AP_CONFIG_SUCCESS)
 	{
-		//maybe start state machine???
-		//save the
 		esp_sta_current_state = ESP_STA_START_TCP_SERVER;
 	}
 }
@@ -561,7 +547,7 @@ void esp_state_machine(void)
 				}
 				else if(CWJAP_FAIL == 1)
 				{
-					++noconnection_count;
+					noconnection_count++;
 					if(noconnection_count == WIFI_CHECKCONNECTION_ATTEMPTS)
 					{
 						uart_flush();
@@ -574,23 +560,14 @@ void esp_state_machine(void)
 				
 			case ESP_STA_CHECK_IP:		
 				//Check if ESP received IP from AP
-				//if(send_command("AT+CIFSR","+CIFSR:STAIP,\"0.0.0.0\""))
-				if(send_command("AT+CIFSR","OK"))  
-				//To be replaced with an invalid IP like 0.0.0.0 
-				//or a piece of the expected IP, like 192.168.
-				//and re-think logic of IF - True - Else statement
+				if(esp_check_connection(ipCheckResult))  //esp station has IP
 				{
-					//IP received, meaning successful connection to AP
-					#if ESP_CHECK_STATUS
-					esp_sta_current_state = ESP_STA_CHECK_STATUS;
-					#else
+					//IP received, meaning successful connection to router
 					esp_sta_current_state = ESP_STA_SETMUX;
-					#endif  //ESP_CHECK_STATUS
 				}
 				else
 				{
-					//This will be true if no IP received from AP
-					//Did not connect to AP
+					//This will be true if no IP received from router
 					esp_sta_current_state = ESP_STA_CONNECT;  //Reset state to connect
 					retry_connect++;
 					if(retry_connect > 5)
@@ -604,25 +581,12 @@ void esp_state_machine(void)
 				uart_flush();
 			break;
 			
-			#if ESP_CHECK_STATUS
-			case ESP_STA_CHECK_STATUS:
-				//Check ESP Status (status = 2, means IP received)
-				if(send_command("AT+CIPSTATUS", "OK"))
-				{
-					esp_sta_current_state = ESP_STA_SETMUX;
-				}
-				uart_flush();
-			break;
-			
-			#endif  //ESP_CHECK_STATUS
 			case ESP_STA_SETMUX:
 				//Set ESP to accept multiple connections
 				if(send_command("AT+CIPMUX=1", "OK"))
 				{
 					esp_sta_current_state = ESP_STA_START_TCP_SERVER;
 				}
-				//AleGaa Todo: else (if not OK)
-				
 				uart_flush();
 			break;
 			
@@ -630,12 +594,7 @@ void esp_state_machine(void)
 				//Close previously created server; replies "no change" if none was created before
 				send_command("AT+CIPSERVER=0", "OK");
 				timer_delay_ms(100);
-				
-				//Start STA TCP server on a manually selected port
-				//AleGaa TCP port currently is set manually in code
-				//for future versions this will be inputed via serial interface
-				//or wifi through mobile device connecting to SoftAP of ESP
-				//feature to be implemented TODO
+				//Start STA TCP server on selected port
 				if(send_command("AT+CIPSERVER=1,1001", "OK"))
 				{
 					esp_sta_current_state = ESP_STA_WAIT_COMMANDS;
@@ -649,7 +608,6 @@ void esp_state_machine(void)
 					bEspIsInit = true;
 				}
 				uart_flush();
-				//AleGaa TODO maybe move timer0 and pwm initialization here, so that the CPU load during ESP setup is lower
 			break;
 			
 			case ESP_STA_CHECK_CONNECTION:
