@@ -122,6 +122,9 @@
 #define ANIMATION_NONET_BLINK	(0x31)
 #define ANIMATION_NONET_XDIM	(0x32)  //LEDs dimmed to X%
 
+#define AP_NOT_ALWAYS_ON	(0x30)
+#define AP_ALWAYS_ON		(0x31)
+
 #define STARTUP_ANIMATION_FUNCTION	(1)	//toggle startup animation
 
 #define NOCONNECTION_ANIMATION_FUNCTION	(0)	// toggle noconnection animation

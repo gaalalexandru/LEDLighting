@@ -46,10 +46,13 @@
 #define ESP_STA_CHECK_STATUS		4
 #define ESP_STA_SETMUX				5
 #define ESP_STA_START_TCP_SERVER	6
-#define ESP_STA_CHECK_CONNECTION	7	//if changes occure, update timer_handler.c also
+#define ESP_STA_CHECK_CONNECTION	7	//if changes occur, update timer_handler.c also
 #define ESP_STA_WAIT_COMMANDS		8
 
 #define ESP_FORCE_WIFI_SETUP (0)
+
+#define ESP_AP_OFF	(0)
+#define ESP_AP_ON	(1)
 
 #define true  1
 #define false 0
@@ -298,6 +301,31 @@ static inline uint8_t esp_check_connection(char workString[])
 	return false;
 }
 
+
+
+static inline void esp_ap_control(uint8_t ap_new_state)
+{
+	static uint8_t ap_old_state = ESP_AP_ON;
+	if((ap_new_state == ESP_AP_OFF) && (ap_old_state != ESP_AP_OFF))
+	{
+		if(send_command("AT+CWMODE=1", "OK"))
+		{
+			ap_old_state = ap_new_state;
+		}
+	}
+	else if((ap_new_state == ESP_AP_ON) && (ap_old_state != ESP_AP_ON))
+	{
+		if(send_command("AT+CWMODE=3", "OK"))
+		{
+			ap_old_state = ap_new_state;
+		}
+	}
+	else
+	{
+		//do nothing
+	}
+}
+
 void esp_check_current_setup(void)
 {
 #if ESP_FORCE_WIFI_SETUP  //for development of wifi setup functionalities
@@ -324,7 +352,7 @@ void esp_check_current_setup(void)
 #endif //ESP_FORCE_WIFI_SETUP	
 }
 
-// this function will setup the ESP Access Point
+// this function will turn on and setup the ESP Access Point
 // mobile device will connect to this network
 // mobile device will send the SSID and password of home network
 // ESP will send to mobile device the IP of ESP on home network
@@ -337,6 +365,8 @@ void esp_wifi_setup(void)
 	uint8_t CWJAP_OK = 0;
 	uint8_t CWJAP_FAIL = 0;
 	char *currStrPos = NULL;
+	
+	esp_ap_control(ESP_AP_ON);	
 	
 	esp_ap_current_state = ESP_AP_INIT;
 	bEspIsInit = false;
@@ -475,6 +505,10 @@ void esp_wifi_setup(void)
 	
 	if (esp_ap_current_state == ESP_AP_CONFIG_SUCCESS)
 	{
+		if(eeprom_read_byte(EEL_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
+		{
+			esp_ap_control(ESP_AP_OFF);
+		}
 		esp_sta_current_state = ESP_STA_START_TCP_SERVER;
 	}
 }
@@ -505,15 +539,7 @@ void esp_state_machine(void)
 				}
 				uart_flush();	
 			break;
-			/*case ESP_STA_SETMODE:
 
-				
-				if(send_command("AT+CWMODE=3", "OK"))
-				{
-					esp_sta_current_state = ESP_STA_CONNECT;
-					uart_flush();
-				}
-			break;*/
 			case ESP_STA_CONNECT:
 				//Set Access Point SSID and Password
 				//send_command not used, because it's necessary to wait a little longer
@@ -527,6 +553,7 @@ void esp_state_machine(void)
 				uart_newline();
 				timer_delay_ms(1000);
 				
+				#if 0
 				do
 				{
 					uart_get_string(workString, 32);	// at this point, workString contains response from AT+CWJAP
@@ -555,9 +582,28 @@ void esp_state_machine(void)
 						esp_wifi_setup();
 					}
 				}
+				#endif
+				
+				if(esp_check_connection(ipCheckResult))
+				{
+					noconnection_count = 0;
+					esp_sta_current_state = ESP_STA_SETMUX;
+				}
+				else
+				{
+					noconnection_count++;
+					if(noconnection_count == WIFI_CHECKCONNECTION_ATTEMPTS)
+					{
+						uart_flush();
+						timer_delay_ms(100);
+						esp_wifi_setup();
+					}
+				}
+				
 				uart_flush();
 			break;		
-				
+			
+			#if 0
 			case ESP_STA_CHECK_IP:		
 				//Check if ESP received IP from AP
 				if(esp_check_connection(ipCheckResult))  //esp station has IP
@@ -580,6 +626,7 @@ void esp_state_machine(void)
 				}
 				uart_flush();
 			break;
+			#endif
 			
 			case ESP_STA_SETMUX:
 				//Set ESP to accept multiple connections
@@ -631,6 +678,7 @@ void esp_state_machine(void)
 				{
 					bEspIsInit = false;
 					esp_sta_current_state = ESP_STA_INIT;
+					//Turn AP back on if necessary
 				}
 				uart_flush();
 			break;
@@ -680,7 +728,7 @@ void esp_state_machine(void)
 				u8work_int = 0;
 			}
 			else if(*dataPtr == '#') //if we receive a command other than PWM setting - command begins with #
-			{  
+			{
 				dataPtr++;
 				switch (*dataPtr)
 				{
