@@ -81,8 +81,6 @@ void animation_setallchannels(const bool level)
 	}
 }
 
-
-
 uint8_t animation_save_startup_anim(uint8_t u8data)
 {
 	uint8_t u8data_check;
@@ -105,7 +103,7 @@ uint8_t animation_save_no_netw_anim(uint8_t u8data)
 	//u8data = u8data - 0x30;  //conversion from ASCII
 	if((u8data>= ANIMATION_NONET_NONE)&&(u8data<=ANIMATION_NONET_XDIM))
 	{
-		eeprom_write_byte(EEL_NO_NET_NOTIFICATION, u8data);
+		eeprom_write_byte(EEL_NO_CONN_NOTIFICATION, u8data);
 		u8data_check = 1;
 	}
 	else
@@ -120,7 +118,7 @@ uint8_t animation_save_no_netw_power(uint8_t u8data)
 	uint8_t u8data_check;
 	if((u8data>=PWM_DUTY_CYCLE_RESET_VALUE)&&(u8data<=PWM_DUTY_MAX_VALUE))
 	{
-		eeprom_write_byte(EEL_NO_NET_NOTIFICATION, u8data);
+		eeprom_write_byte(EEL_NO_CONN_NOTIFICATION, u8data);
 		u8data_check = 1;
 	}
 	else 
@@ -136,9 +134,9 @@ uint8_t animation_load_startup_anim(void)
 }
 uint8_t animation_load_no_netw_anim(void)
 {
-	return (eeprom_read_byte(EEL_NO_NET_NOTIFICATION));
+	return (eeprom_read_byte(EEL_NO_CONN_NOTIFICATION));
 }
 uint8_t animation_load_no_netw_power(void)
 {
-	return (eeprom_read_byte(EEL_NO_NET_POWER));
+	return (eeprom_read_byte(EEL_NO_CONN_POWER));
 }

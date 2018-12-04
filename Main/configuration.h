@@ -137,10 +137,12 @@
 #define EEL_FIRST_START			(0X0000)	//0=Yes, 1=No
 #define EEL_STARTUP_ANIMATION	(0x0001)	//30=None, 31=circle, 32=smooth
 #define EEL_DEFAULT_POWER		(0x0002)	//0x30=0%, 0x44=100%
-#define EEL_NO_NET_NOTIFICATION	(0x0003)	//30=None, 31=blink, 32=XX% power
-#define EEL_NO_NET_POWER		(0x0004)	//0x30=0%, 0x44=100%
+#define EEL_NO_CONN_NOTIFICATION	(0x0003)	//30=None, 31=blink, 32=XX% power
+#define EEL_NO_CONN_POWER		(0x0004)	//0x30=0%, 0x44=100%
 #define EEL_DEVICE_ID			(0x0005)	//0x41 -> 0x5A
 #define EEL_AP_ALWAYS_ON		(0x0006)	//0x30 Not always on, 0x31 Always on
+#define EEL_ESP_AUTOCONNECT		(0x0007)	//0x30 ESP Autoconnect Off, 0x31 Autoconn On
+
 
 #define EEPROM_INITIALIZED	(0x49)  //'I' character, meaning EEPROM is initialized with default values.
 #define EEL_FACTORY_SUA		(0x30)  //No startup animation by factory settings

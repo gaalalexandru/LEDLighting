@@ -22,8 +22,8 @@ void eeprom_init(void)
 		eeprom_write_byte(EEL_FIRST_START, EEPROM_INITIALIZED);
 		eeprom_write_byte(EEL_STARTUP_ANIMATION, EEL_FACTORY_SUA);
 		eeprom_write_byte(EEL_DEFAULT_POWER, EEL_FACTORY_POWER);
-		eeprom_write_byte(EEL_NO_NET_NOTIFICATION, EEL_FACTORY_NNN);
-		eeprom_write_byte(EEL_NO_NET_POWER, EEL_FACTORY_NNN_PWR);
+		eeprom_write_byte(EEL_NO_CONN_NOTIFICATION, EEL_FACTORY_NNN);
+		eeprom_write_byte(EEL_NO_CONN_POWER, EEL_FACTORY_NNN_PWR);
 		eeprom_write_byte(EEL_DEVICE_ID, EEL_FACTORY_ID);
 		eeprom_write_byte(EEL_AP_ALWAYS_ON, EEL_FACTORY_AP_ON);
 	}

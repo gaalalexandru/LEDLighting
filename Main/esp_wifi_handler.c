@@ -745,14 +745,16 @@ void esp_state_machine(void)
 						if(*dataPtr == '0')  //deactivate auto connect
 						{
 							send_command("AT+CWAUTOCONN=0", "OK");
+							eeprom_write_byte(EEL_ESP_AUTOCONNECT,0x30);
 							esp_response(senderID, clientIPString, "0");
 						}
 						else if(*dataPtr == '1') //activate auto connect
 						{
 							send_command("AT+CWAUTOCONN=1", "OK");
+							eeprom_write_byte(EEL_ESP_AUTOCONNECT,0x31);
 							esp_response(senderID, clientIPString, "1");
 						}
-						else{ /*do nothing*/ }				
+						else{ /*do nothing*/ }
 					break;
 					
 					case 'G':  //G command: set default PWM (will be stored in EEPROM)
@@ -825,6 +827,41 @@ void esp_state_machine(void)
 						{
 							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
 						}
+					break;
+
+					case 'M': //J command:sync device settings
+					dataPtr++;
+					//byte 0 -> 11 of response contain the channel PWM duty cycles
+					for (u8work_int=0; u8work_int<PWM_CHMAX; u8work_int++) 
+					{
+						*(workString+u8work_int) = pwm_width_buffer[u8work_int];
+					}
+					
+					//byte 12 contains the ESP AUTOCONN On / Off setting
+					u8work_int++;
+					*(workString+u8work_int) = eeprom_read_byte(EEL_ESP_AUTOCONNECT);
+					
+					//byte 13 contains the ESP AP ALWAYS ON On / Off setting
+					u8work_int++;
+					*(workString+u8work_int) = eeprom_read_byte(EEL_AP_ALWAYS_ON);
+					
+					//byte 14 contains the StartUpAnimation setting
+					u8work_int++;
+					*(workString+u8work_int) =  eeprom_read_byte(EEL_STARTUP_ANIMATION);
+					
+					//byte 15 contains the No Conn Notif
+					u8work_int++;
+					*(workString+u8work_int) = eeprom_read_byte(EEL_NO_CONN_NOTIFICATION);
+					
+					//byte 15 contains the No Conn Power
+					u8work_int++;
+					*(workString+u8work_int) = eeprom_read_byte(EEL_NO_CONN_POWER);
+
+					//byte 16 contains the Default Power
+					u8work_int++;
+					*(workString+u8work_int) = eeprom_read_byte(EEL_DEFAULT_POWER);					
+					
+					esp_response(senderID, clientIPString, workString);
 					break;
 
 					default:
