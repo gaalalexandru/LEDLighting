@@ -838,7 +838,7 @@ void esp_state_machine(void)
 					}
 					
 					//byte 12 contains the ESP AUTOCONN On / Off setting
-					u8work_int++;
+					u8work_int=PWM_CHMAX;
 					*(workString+u8work_int) = eeprom_read_byte(EEL_ESP_AUTOCONNECT);
 					
 					//byte 13 contains the ESP AP ALWAYS ON On / Off setting
