@@ -248,7 +248,7 @@ void esp_init(void)
 	RST_ESP_SET(0);
 	RST_ESP_SET(1);
 	CH_PD_SET(1);
-	timer_delay_ms(6000);  //Wait 6 second until ESP is started and finishes standard junk output :)
+	timer_delay_ms(10000);  //Wait 6 second until ESP is started and finishes standard junk output :)
 	//Set ESP8266 mode (1 = Station, 2 = Soft Access Point, 3 = Sta + SoftAP)
 	//AleGaa: Since CWMODE is set in flash memory of ESP, might be useful
 	//to set the mode only at "manufacturing" via serial terminal
