@@ -8,9 +8,7 @@
 #ifndef WIFI_HANDLER_H_
 #define WIFI_HANDLER_H_
 
-void esp_init(void);
-void esp_check_current_setup(void);
-void esp_wifi_setup(void);
+uint8_t esp_init_hw(uint16_t u16init_delay);
 void esp_state_machine(void);
 
 #endif /* WIFI_HANDLER_H_ */

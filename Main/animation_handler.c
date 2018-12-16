@@ -58,7 +58,6 @@ void animation_init(void)
 	}
 	else 
 	{
-		uart_send_string("what the fox???");
 		uart_send_char(u8anim);
 		uart_newline();
 	}

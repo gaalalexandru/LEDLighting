@@ -19,15 +19,11 @@
 #include "esp_wifi_handler.h"
 #include "animation_handler.h"
 
-#define ESP_STA_CHECK_CONNECTION	7
-
 /************************************************************************/
 /*	                          Global Variables                          */
 /************************************************************************/
 volatile uint32_t timer_system_ms = 0;  //system startup counter in milliseconds
-extern volatile uint8_t bEspIsConnected;
-extern volatile uint8_t bEspIsInit;
-extern volatile uint8_t esp_sta_current_state;
+extern volatile uint8_t gb_esp_is_connected;
 
 /************************************************************************/
 /*	                  Timer Initialization Functions                    */
@@ -148,23 +144,8 @@ ISR (TIMER0_OVF_vect)
 /* Timer1 Compare Match A Interrupt function*/
 ISR (TIMER1_COMPA_vect)
 {
-	#if 0 // used before switching to searching for "WIFI" in serialResult
-	#if WIFI_CHECKCONNECTION_FUNCTION
-	if(bEspIsInit == true)
-	{
-		static uint8_t count = 0;
-		++count;
-		if(count == 10 * WIFI_CHECKCONNECTION_FUNCTION)	//10 seconds
-		{
-			count = 0;
-			esp_sta_current_state = ESP_STA_CHECK_CONNECTION;
-		}
-	}
-	#endif //WIFI_CHECKCONNECTION_FUNCTION
-	#endif
-	
 	#if NOCONNECTION_ANIMATION_FUNCTION
-	if(bEspIsConnected == false)
+	if(gb_esp_is_connected == false)
 	{
 		static uint8_t counter = 0;
 		static uint8_t toggle = 0;
@@ -178,7 +159,6 @@ ISR (TIMER1_COMPA_vect)
 	}
 	#endif //NOCONNECTION_ANIMATION_FUNCTION
 	
-	//TOGGLE_STATUS_LED; @AleGaa not valid anymore
 	status_led_update();
 }
 
@@ -191,7 +171,3 @@ ISR (TIMER2_COMP_vect)
 {
 	timer_system_ms++; //increment every 1 ms
 }
-
-
-
-

@@ -30,6 +30,7 @@ static uint8_t get_next_char(void)
 
 
 //can't use manual control if wifi module is turned on
+//message format is #xYY, x = channel number, YY 8bit hex value of pulse width
 void manual_control(void)
 {
 	unsigned char rxdata, channel, temp, error, i;
