@@ -35,7 +35,7 @@
 /*							FUNCTIONALITY ACTIVATION					*/
 /************************************************************************/
 #define LIGHTING_FUNCTION_ACTIVE	(1)	//enable timer0 and pwm channel outputs
-#define STATUS_LED_ACTIVE			(0)	//enable timer1 and status LED init & toggle
+#define STATUS_LED_ACTIVE			(1)	//enable timer1 and status LED init & toggle
 #define DEBUGPIN_ACTIVE				(0)	//enable free pin to be used for debugging / measurements
 #define TERMINAL_DEBUG_ACTIVE		(0) //enable the print of various information to terminal
 #define STARTUP_ANIMATION_ACTIVE	(0)	//toggle startup animation

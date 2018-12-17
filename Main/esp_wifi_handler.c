@@ -375,6 +375,7 @@ void esp_state_machine(void)
 			{
 				u8esp_current_state = ESP_STATE_START_TCP_SERVER;
 				esp_is_connected = true;
+				status_led_mode = connected_to_ap;
 				//#if STARTUP_ANIMATION_ACTIVE
 				//animation_init();
 				//#endif //STARTUP_ANIMATION_ACTIVE
@@ -409,7 +410,7 @@ void esp_state_machine(void)
 				u8work_int &= 0;
 			}
 			timer_delay_ms(200);
-			if (send_command(strcat("AT+CIPSERVER=1,", ESP_CONFIG_TCP_PORT), "OK")) {
+			if (send_command(strcat("AT+CIPSERVER=1", ESP_CONFIG_TCP_PORT), "OK")) {
 				u8work_int &= 1;
 			} else {
 				uart_send_string(ERROR_ESP_STATE_START_TCP_SERVER_FailedServerStart);
@@ -423,7 +424,7 @@ void esp_state_machine(void)
 				u8work_int &= 0;
 			}
 			timer_delay_ms(50);
-			if (send_command(strcat("AT+CIPSTO=60",ESP_CONFIG_TCP_TIMEOUT), "OK")) {
+			if (send_command(strcat("AT+CIPSTO=",ESP_CONFIG_TCP_TIMEOUT), "OK")) {
 				u8work_int &= 1;
 			} else {
 				uart_send_string(ERROR_ESP_STATE_START_TCP_SERVER_FailedSterverTimeout);
@@ -636,6 +637,14 @@ void esp_state_machine(void)
 			if(strstr(esp_serial_result, "DISCONNECT") != NULL)
 			{
 				u8esp_current_state = ESP_STATE_HW_INIT;
+				status_led_mode = wait_for_ip;
+				esp_is_connected = false;
+			}
+			if(strstr(esp_serial_result, "CONNECTED") != NULL)
+			{
+				u8esp_current_state = ESP_STATE_HW_INIT;
+				status_led_mode = wait_for_ip;
+				esp_is_connected = false;
 			}
 			#endif	//ESP_CONFIG_CHECK_RUNTIME_CONNECTION
 			uart_flush();
@@ -677,6 +686,7 @@ void esp_state_machine(void)
 					esp_response(esp_sender_ID, esp_client_IP, esp_station_IP);
 					timer_delay_ms(2000);
 					esp_is_connected = true;
+					status_led_mode = connected_to_ap;
 					//now it's possible to turn AP off if this is the setting in eeprom
 					if(eeprom_read_byte(EEL_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
 					{

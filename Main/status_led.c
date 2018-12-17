@@ -28,8 +28,7 @@ volatile status_led_mode_t status_led_mode = off;
 void status_led_init(void)
 {
 	INIT_STATUS_LED;
-	//status_led_mode = off;
-	status_led_mode = connected_to_ap;
+	status_led_mode = off;
 }
 
 /*
