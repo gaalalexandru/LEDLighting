@@ -55,8 +55,8 @@
 #define BUFFER_SIZE_WIFI_CREDENTIALS_STRING	(40)
 #define BUFFER_SIZE_SERIAL_RESULT			(101)
 #define BUFFER_SIZE_IP_STRING				(15)
-#define AP_OFF	(0)
-#define AP_ON	(1)
+#define AP_OFF	(0x30)
+#define AP_ON	(0x31)
 #define true  1
 #define false 0
 
@@ -290,7 +290,7 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 	else if (eeprom_read_byte(EEL_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
 	{
 		u8work_int = esp_ap_control(AP_OFF);
-		if (ESP_RETURN_AP_OFF != u8work_int) {
+		if (ESP_RETURN_AP_OFF == u8work_int) {
 			u8response &= ESP_RETURN_OK;
 		} else { 
 			u8response &= ESP_RETURN_ERROR;
@@ -355,12 +355,12 @@ void esp_state_machine(void)
 	{
 		case ESP_STATE_HW_INIT:
 
-			
+			status_led_mode = wait_for_ip;
 			u8work_int = esp_init_hw(10000);
 			timer_delay_ms(100);
 			if(ESP_RETURN_OK == u8work_int)
 			{
-				status_led_mode = wait_for_ip;
+				//status_led_mode = wait_for_ip;
 				u8esp_current_state = ESP_STATE_CHECK_CONNECTION;
 			}
 			uart_flush();
@@ -382,6 +382,8 @@ void esp_state_machine(void)
 			} else if(ESP_RETURN_NOT_CONNECTED == u8work_int) {
 				u8esp_current_state = ESP_STATE_START_AP;
 				esp_is_connected = false;
+			} else {
+				uart_send_string(ERROR_ESP_STATE_CHECK_CONNECTION_UnknownCheckConnResult);
 			}
 			#endif //ESP_CONFIG_FORCE_WIFI_SETUP
 		break;
@@ -391,6 +393,10 @@ void esp_state_machine(void)
 			if(ESP_RETURN_AP_ON == u8work_int)
 			{
 				u8esp_current_state = ESP_STATE_START_TCP_SERVER;
+			}
+			else
+			{
+				uart_send_string(ERRPR_ESP_STATE_START_AP_FailedStartAP);
 			}
 			uart_flush();
 		break;
@@ -409,14 +415,15 @@ void esp_state_machine(void)
 				uart_send_string(ERROR_ESP_STATE_START_TCP_SERVER_FailedOldServerStop);
 				u8work_int &= 0;
 			}
-			timer_delay_ms(200);
-			if (send_command(strcat("AT+CIPSERVER=1", ESP_CONFIG_TCP_PORT), "OK")) {
+			timer_delay_ms(400);
+				if (send_command(strcat("AT+CIPSERVER=1,", ESP_CONFIG_TCP_PORT), "OK")) {
+				//if (send_command("AT+CIPSERVER=1,1001", "OK")) {
 				u8work_int &= 1;
 			} else {
 				uart_send_string(ERROR_ESP_STATE_START_TCP_SERVER_FailedServerStart);
 				u8work_int &= 0;
 			}
-			timer_delay_ms(200);
+			timer_delay_ms(400);
 			if (send_command("AT+CIPDINFO=1", "OK")) {
 				u8work_int &= 1;
 			} else {
@@ -576,7 +583,7 @@ void esp_state_machine(void)
 						}
 						break;
 
-						case 'M': //J command:sync device settings
+						case 'M': //M command:sync device settings
 							//byte 0 -> 11 of response contain the channel PWM duty cycles
 							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 							for (u8work_int=0; u8work_int<PWM_CHMAX; u8work_int++)
@@ -610,6 +617,34 @@ void esp_state_machine(void)
 							
 							esp_response(esp_sender_ID, esp_client_IP, ac_work_string);
 						break;
+						
+						case 'N':  //configure AP to be or not to be always on in EEPROM
+							pc_current_string_pos++;
+							eeprom_write_byte(EEL_AP_ALWAYS_ON, (uint8_t)*pc_current_string_pos);  
+							//0x30 not always ON, 0x31 always ON	
+							if(((*pc_current_string_pos) == AP_ALWAYS_ON) || ((*pc_current_string_pos) == AP_NOT_ALWAYS_ON))
+							{
+								esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
+							}
+							else
+							{
+								esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
+							}
+						break;
+
+						case 'O':  //switch AP on / off
+						pc_current_string_pos++;
+						u8work_int = esp_ap_control((uint8_t)*pc_current_string_pos);
+						
+						if(u8work_int)
+						{
+							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
+						}
+						else
+						{
+							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
+						}
+						break;
 
 						default:
 						//do nothing
@@ -628,23 +663,16 @@ void esp_state_machine(void)
 			}
 			/*
 			 * Handling of continuous connection checking:
-			 * Check connection only when WIFI [DISCONNECT] is found in esp_serial_result
-			 * up to this point, receive_serial function was called above
+			 * Check connection only when WIFI DISCONNECT or WIFI CONNECTED 
+			 * is found in esp_serial_result up to this point,
+			 * receive_serial function was called above
 			 * this seems to work best for a beta version
 			 * more tests needed to see if fully stable
 			 */
 			#if ESP_CONFIG_CHECK_RUNTIME_CONNECTION
-			if(strstr(esp_serial_result, "DISCONNECT") != NULL)
-			{
+			if((strstr(esp_serial_result, "DISCONNECT") != NULL) || \
+			   (strstr(esp_serial_result, "CONNECTED") != NULL)) {
 				u8esp_current_state = ESP_STATE_HW_INIT;
-				status_led_mode = wait_for_ip;
-				esp_is_connected = false;
-			}
-			if(strstr(esp_serial_result, "CONNECTED") != NULL)
-			{
-				u8esp_current_state = ESP_STATE_HW_INIT;
-				status_led_mode = wait_for_ip;
-				esp_is_connected = false;
 			}
 			#endif	//ESP_CONFIG_CHECK_RUNTIME_CONNECTION
 			uart_flush();

@@ -37,9 +37,8 @@ int main(void)
 	timer1_init();
 	#endif  //STATUS_LED_ACTIVE
 	
-	#if ESP_TERMINAL_CONTROL
-	//do not initialize UART on ATMEGA
-	esp_hw_init(); //turn on ESP pins
+	#if ESP_TERMINAL_CONTROL //do not initialize UART on ATMEGA
+	esp_init_hw(); //turn on ESP pins
 	#else
 	uart_init(MYUBRR);
 	#endif //ESP_TERMINAL_CONTROL
