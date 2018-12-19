@@ -97,6 +97,15 @@ int8_t eeprom_save_wifi_credentials(char *pcwifi_credentials)
 {
 	uint8_t i8wifi_credentials_length = 0;
 	uint16_t u16wifi_credentials_address = EEL_WIFI_CREDENTIALS_START;
+	
+	#if EEPROM_CONFIG_CLEAR_CREDENTIALS_STORAGE
+	for (u16wifi_credentials_address = EEL_WIFI_CREDENTIALS_START; \
+		u16wifi_credentials_address < EEL_WIFI_CREDENTIALS_END; \
+		u16wifi_credentials_address++) {
+		eeprom_write_byte(u16wifi_credentials_address,0);
+	}
+	u16wifi_credentials_address = EEL_WIFI_CREDENTIALS_START;
+	#endif //EEPROM_CONFIG_CLEAR_CREDENTIALS_STORAGE
 	do
 	{
 		eeprom_write_byte(u16wifi_credentials_address,*pcwifi_credentials);

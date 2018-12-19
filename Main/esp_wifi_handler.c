@@ -356,11 +356,10 @@ void esp_state_machine(void)
 		case ESP_STATE_HW_INIT:
 
 			status_led_mode = wait_for_ip;
-			u8work_int = esp_init_hw(10000);
+			u8work_int = esp_init_hw(ESP_CONFIG_INIT_DELAY);
 			timer_delay_ms(100);
 			if(ESP_RETURN_OK == u8work_int)
 			{
-				//status_led_mode = wait_for_ip;
 				u8esp_current_state = ESP_STATE_CHECK_CONNECTION;
 			}
 			uart_flush();
@@ -416,14 +415,19 @@ void esp_state_machine(void)
 				u8work_int &= 0;
 			}
 			timer_delay_ms(400);
-				if (send_command(strcat("AT+CIPSERVER=1,", ESP_CONFIG_TCP_PORT), "OK")) {
-				//if (send_command("AT+CIPSERVER=1,1001", "OK")) {
+			memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+			strcpy(ac_work_string,"AT+CIPSERVER=1,");
+			strcat(ac_work_string, ESP_CONFIG_TCP_PORT);			
+			//if (send_command(strcat("AT+CIPSERVER=1,", ESP_CONFIG_TCP_PORT), "OK")) {
+			//if (send_command("AT+CIPSERVER=1,1001", "OK")) {
+			if (send_command(ac_work_string, "OK")) {
 				u8work_int &= 1;
 			} else {
 				uart_send_string(ERROR_ESP_STATE_START_TCP_SERVER_FailedServerStart);
 				u8work_int &= 0;
 			}
 			timer_delay_ms(400);
+			memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 			if (send_command("AT+CIPDINFO=1", "OK")) {
 				u8work_int &= 1;
 			} else {
@@ -449,8 +453,8 @@ void esp_state_machine(void)
 			/* 
 			 * Incoming data example:
 			 * +IPD,0,25,192.168.4.2,50511:@"MyWifiNetworkSSID","MyPassword"
-			 * +IPD,0,7,192.168.1.136,64238:$ChannelID#PowerValue
-			 * +IPD,0,7,192.168.1.136,64238:#CommandIDOption
+			 * +IPD,0,7,192.168.1.136,64238:$Channel#PowerValue
+			 * +IPD,0,7,192.168.1.136,64238:#CommandOption
 			 */
 			if(check_until_timeout("+IPD,", 1))
 			{
@@ -657,7 +661,6 @@ void esp_state_machine(void)
 				{
 					pc_current_string_pos++;
 					strcpy(esp_wifi_credentials, pc_current_string_pos);
-					eeprom_save_wifi_credentials(esp_wifi_credentials);
 					u8esp_current_state = ESP_STATE_JOIN_NEW_NETWORK;
 				}
 			}
@@ -670,8 +673,15 @@ void esp_state_machine(void)
 			 * more tests needed to see if fully stable
 			 */
 			#if ESP_CONFIG_CHECK_RUNTIME_CONNECTION
-			if((strstr(esp_serial_result, "DISCONNECT") != NULL) || \
-			   (strstr(esp_serial_result, "CONNECTED") != NULL)) {
+			//if((strstr(esp_serial_result, "DISCONNECT") != NULL) || (strstr(esp_serial_result, "CONNECTED") != NULL)) {
+			/*
+			 * Sometimes when network connection was lost (DISCONNECT detected) 
+			 * and right after that the connection reestablished, 
+			 * the CONNECTED word was not detected.
+			 * For this reason for the moment look for word WIFI, 
+			 * that should arise only @ disconnect / connect.
+			 */
+			if(strstr(esp_serial_result, "WIFI") != NULL){
 				u8esp_current_state = ESP_STATE_HW_INIT;
 			}
 			#endif	//ESP_CONFIG_CHECK_RUNTIME_CONNECTION
@@ -682,11 +692,10 @@ void esp_state_machine(void)
 			//connect to new SSID
 			uart_flush();
 			esp_is_connected = false;
-			//timer_delay_ms(1000);
 			uart_send_string("AT+CWJAP=");
 			uart_send_string(esp_wifi_credentials);
 			uart_newline();
-			timer_delay_ms(1000);
+			timer_delay_ms(1200);
 			u8work_int = ESP_RETURN_NDEF;
 			
 			memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
@@ -724,7 +733,6 @@ void esp_state_machine(void)
 							uart_send_string(ERROR_ESP_STATE_JOIN_NEW_NETWORK_ESP_RETURN_CONNECT_SUCCESS_FailedAPSetting);
 						}
 					}
-					//u8esp_current_state = ESP_STATE_START_TCP_SERVER;
 					u8connection_retry_count = 0;
 					u8esp_current_state = ESP_STATE_WAIT_DATA;
 					eeprom_save_wifi_credentials(esp_wifi_credentials);
@@ -752,7 +760,7 @@ void esp_state_machine(void)
 				}
 			}
 			// if esp failed in connecting to ssid and pass provided, go back to receive ssid and pass state
-			else if(ESP_RETURN_CONNECT_FAILED == u8work_int/*CWJAP_FAIL == 1*/)
+			else if(ESP_RETURN_CONNECT_FAILED == u8work_int)
 			{
 				if(u8connection_retry_count < ESP_CONFIG_CONNECTION_MAX_RETRY)
 				{
@@ -766,8 +774,6 @@ void esp_state_machine(void)
 					u8connection_retry_count = 0;
 					u8esp_current_state = ESP_STATE_START_AP;
 				}
-				//esp_is_connected = false;
-				//timer_delay_ms(2000);
 			}
 			else 
 			{

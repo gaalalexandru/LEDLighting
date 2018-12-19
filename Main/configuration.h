@@ -95,6 +95,7 @@
 #endif
 
 //ESP & StateMachine functionality configuration
+#define ESP_CONFIG_INIT_DELAY				(8000) //value is ms, try with smaller delay: 10s OK, 8s ???, 6s NOK (ok, but not on all networks)
 #define ESP_CONFIG_TCP_PORT					"1001"
 #define ESP_CONFIG_TCP_TIMEOUT				"60"  //seconds before tcp connection is closed
 #define ESP_CONFIG_FORCE_WIFI_SETUP			(0)
@@ -129,7 +130,7 @@
 #define NOCONNECTION_ANIMATION_DEFAULTPWM	(0x31)	// set noconnection animation pwm target
 
 /************************************************************************/
-/*								EEPROM LAYOUT							*/
+/*							EEPROM CONFIG & LAYOUT						*/
 /************************************************************************/
 #define EEL_FIRST_START			(0X0000)	//0=Yes, 1=No
 #define EEL_STARTUP_ANIMATION	(0x0001)	//30=None, 31=circle, 32=smooth
@@ -156,5 +157,5 @@
 #define EEPROM_MIN_ID		(0x41)
 #define EEPROM_MAX_ID		(0x5A)
 
-
+#define EEPROM_CONFIG_CLEAR_CREDENTIALS_STORAGE	(0)
 #endif /* CONFIGURATION_H_ */
