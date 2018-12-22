@@ -47,6 +47,30 @@
 #define ESP_RETURN_CONNECT_FAILED	(6)
 #define ESP_RETURN_CONNECT_SUCCESS	(7)
 
+//esp_wifi_handler defined commands
+#define ESP_CMD_GET_STA_IP				('E')
+#define ESP_CMD_SET_AUTOCONNECT			('F')
+#define ESP_CMD_SET_DEFAULT_PWM			('G')
+#define ESP_CMD_SET_STARTUP_ANIM		('H')
+#define ESP_CMD_SET_NO_NETWORK_ANIM		('I')
+#define ESP_CMD_SET_NO_NETWORK_POWER	('J')
+#define ESP_CMD_GET_DEVICE_ID			('K')
+#define ESP_CMD_SET_DEVICE_ID			('L')
+#define ESP_CMD_GET_DEVICE_SETTINGS		('M')
+#define ESP_CMD_SET_AP_ALWAYS_ON		('N')
+#define ESP_CMD_SET_AP_ON_OFF			('O')
+#define ESP_CMD_SET_BYTE_EEPROM			('P')
+#define ESP_CMD_GET_BYTE_EEPROM			('Q')
+#define ESP_CMD_RESET_EEPROM			('R')
+#define ESP_CMD_RESET_SYSTEM			('X')
+
+//esp_wifi_handler defined symbols
+#define ESP_SYM_DATA_IS_PWM_CH			('$')
+#define ESP_SYM_DATA_IS_PWM_DC			('#')
+#define ESP_SYM_DATA_IS_CMD				('#')
+#define ESP_SYM_DATA_IS_SSID			('@')
+#define ESP_SYM_AP_OFF					(0x30)
+#define ESP_SYM_AP_ON					(0x31)
 /* To define the maximum waiting time for a response*/
 #define SET_RESPONSE_TIMEOUT(x)	(response_max_timestamp =  (timer_ms() + ((x) * 1000)))
 /* Will return true if timeout expired*/
@@ -55,8 +79,6 @@
 #define BUFFER_SIZE_WIFI_CREDENTIALS_STRING	(40)
 #define BUFFER_SIZE_SERIAL_RESULT			(101)
 #define BUFFER_SIZE_IP_STRING				(15)
-#define AP_OFF	(0x30)
-#define AP_ON	(0x31)
 #define true  1
 #define false 0
 
@@ -213,12 +235,12 @@ static void esp_response(uint8_t ID, char *destination, char *message)
 static inline uint8_t esp_ap_control(uint8_t u8ap_new_state)
 {
 	uint8_t u8response = 0;
-	if(u8ap_new_state == AP_OFF)
+	if(u8ap_new_state == ESP_SYM_AP_OFF)
 	{
 		u8response = send_command("AT+CWMODE=1", "OK");
 		timer_delay_ms(50);
 	}
-	else if((u8ap_new_state == AP_ON))
+	else if((u8ap_new_state == ESP_SYM_AP_ON))
 	{
 		u8response = send_command("AT+CWMODE=3", "OK");
 		timer_delay_ms(50);
@@ -229,8 +251,8 @@ static inline uint8_t esp_ap_control(uint8_t u8ap_new_state)
 	}
 	if(u8response)
 	{
-		u8response = ((u8ap_new_state == AP_ON)? ESP_RETURN_AP_ON: \
-					 (u8ap_new_state == AP_OFF)? ESP_RETURN_AP_OFF: ESP_RETURN_ERROR);
+		u8response = ((u8ap_new_state == ESP_SYM_AP_ON)? ESP_RETURN_AP_ON: \
+					 (u8ap_new_state == ESP_SYM_AP_OFF)? ESP_RETURN_AP_OFF: ESP_RETURN_ERROR);
 	}
 	else
 	{
@@ -280,7 +302,7 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 	}
 	if(eeprom_read_byte(EEL_AP_ALWAYS_ON) == AP_ALWAYS_ON)
 	{
-		u8work_int = esp_ap_control(AP_ON);
+		u8work_int = esp_ap_control(ESP_SYM_AP_ON);
 		if(ESP_RETURN_AP_ON == u8work_int) {
 			u8response &= ESP_RETURN_OK;
 		} else {
@@ -289,7 +311,7 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 	} 
 	else if (eeprom_read_byte(EEL_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
 	{
-		u8work_int = esp_ap_control(AP_OFF);
+		u8work_int = esp_ap_control(ESP_SYM_AP_OFF);
 		if (ESP_RETURN_AP_OFF == u8work_int) {
 			u8response &= ESP_RETURN_OK;
 		} else { 
@@ -388,7 +410,7 @@ void esp_state_machine(void)
 		break;
 		
 		case ESP_STATE_START_AP:
-			u8work_int = esp_ap_control(AP_ON);
+			u8work_int = esp_ap_control(ESP_SYM_AP_ON);
 			if(ESP_RETURN_AP_ON == u8work_int)
 			{
 				u8esp_current_state = ESP_STATE_START_TCP_SERVER;
@@ -462,17 +484,17 @@ void esp_state_machine(void)
 				esp_aux_client_data(esp_serial_result);
 				pc_current_string_pos = strchr(pc_current_string_pos, ':');  //find end of client IP, port nr
 				pc_current_string_pos++;
-				if(*pc_current_string_pos == '$')  //if we receive a command for PWM setting - command begins with $
+				if(*pc_current_string_pos == ESP_SYM_DATA_IS_PWM_CH)  //if we receive a command for PWM setting - command begins with $
 				{
 					pc_current_string_pos++;
 					u8work_int = (*pc_current_string_pos) - 0x30;
 					pc_current_string_pos++;
 					//check if next character is start of duty cycle byte (#) or still channel nr.
-					if(*pc_current_string_pos != '#')
+					if(*pc_current_string_pos != ESP_SYM_DATA_IS_PWM_DC)
 					{
 						u8work_int = (u8work_int*10)+((*pc_current_string_pos) - 0x30);
 					}
-					pc_current_string_pos = strchr(pc_current_string_pos, '#');  //find start of duty cycle byte
+					pc_current_string_pos = strchr(pc_current_string_pos, ESP_SYM_DATA_IS_PWM_DC);  //find start of duty cycle byte
 					pc_current_string_pos++;  //go to duty cycle byte
 					if(pwm_wifi_update(u8work_int,  ((uint8_t)*pc_current_string_pos)))
 					{
@@ -485,12 +507,12 @@ void esp_state_machine(void)
 					}
 					u8work_int = 0;
 				}
-				else if(*pc_current_string_pos == '#') // we receive a command other than PWM setting - command begins with #
+				else if(*pc_current_string_pos == ESP_SYM_DATA_IS_CMD) // we receive a command other than PWM setting - command begins with #
 				{
 					pc_current_string_pos++;
 					switch (*pc_current_string_pos)
 					{
-						case 'E':  //E command: get STA IP
+						case ESP_CMD_GET_STA_IP:  //E command: get STA IP
 						if(esp_check_connection(ac_ip_check_result))  //esp station has IP
 						{
 							esp_aux_calc_station_ip(ac_ip_check_result);
@@ -498,7 +520,7 @@ void esp_state_machine(void)
 						}
 						break;
 						
-						case 'F':  //F command: activate / deactivate ESP auto connect to saved network
+						case ESP_CMD_SET_AUTOCONNECT:  //F command: activate / deactivate ESP auto connect to saved network
 						pc_current_string_pos++;
 						if(*pc_current_string_pos == '0')  //deactivate auto connect
 						{
@@ -515,7 +537,7 @@ void esp_state_machine(void)
 						else{ /*do nothing*/ }
 						break;
 						
-						case 'G':  //G command: set default PWM (will be stored in EEPROM)
+						case ESP_CMD_SET_DEFAULT_PWM:  //G command: set default PWM (will be stored in EEPROM)
 						pc_current_string_pos++;
 						if(pwm_save_default_dutycycle((uint8_t)*pc_current_string_pos))
 						{
@@ -527,7 +549,7 @@ void esp_state_machine(void)
 						}
 						break;
 						
-						case 'H':  //H command: set startup animation
+						case ESP_CMD_SET_STARTUP_ANIM:  //H command: set startup animation
 						pc_current_string_pos++;
 						if(animation_save_startup_anim((uint8_t)*pc_current_string_pos))
 						{
@@ -539,7 +561,7 @@ void esp_state_machine(void)
 						}
 						break;
 						
-						case 'I':  //I command: set no network animation
+						case ESP_CMD_SET_NO_NETWORK_ANIM:  //I command: set no network animation
 						pc_current_string_pos++;
 						if(animation_save_no_netw_anim((uint8_t)*pc_current_string_pos))
 						{
@@ -551,7 +573,7 @@ void esp_state_machine(void)
 						}
 						break;
 
-						case 'J':  //J command: set no network notification power
+						case ESP_CMD_SET_NO_NETWORK_POWER:  //J command: set no network notification power
 						pc_current_string_pos++;
 						if(animation_save_no_netw_power((uint8_t)*pc_current_string_pos))
 						{
@@ -563,7 +585,7 @@ void esp_state_machine(void)
 						}
 						break;
 
-						case 'K': //K command:get the device ID from eeprom
+						case ESP_CMD_GET_DEVICE_ID: //K command:get the device ID from eeprom
 						u8work_int = eeprom_load_id();
 						if(u8work_int != EEPROM_INVALID_ID)
 						{
@@ -575,7 +597,7 @@ void esp_state_machine(void)
 						}
 						break;
 
-						case 'L': //L command:save the device ID to eeprom
+						case ESP_CMD_SET_DEVICE_ID: //L command:save the device ID to eeprom
 						pc_current_string_pos++;
 						if(eeprom_save_id((uint8_t)*pc_current_string_pos))
 						{
@@ -587,7 +609,7 @@ void esp_state_machine(void)
 						}
 						break;
 
-						case 'M': //M command:sync device settings
+						case ESP_CMD_GET_DEVICE_SETTINGS: //M command:sync device settings
 							//byte 0 -> 11 of response contain the channel PWM duty cycles
 							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 							for (u8work_int=0; u8work_int<PWM_CHMAX; u8work_int++)
@@ -622,7 +644,7 @@ void esp_state_machine(void)
 							esp_response(esp_sender_ID, esp_client_IP, ac_work_string);
 						break;
 						
-						case 'N':  //configure AP to be or not to be always on in EEPROM
+						case ESP_CMD_SET_AP_ALWAYS_ON:  //configure AP to be or not to be always on in EEPROM
 							pc_current_string_pos++;
 							eeprom_write_byte(EEL_AP_ALWAYS_ON, (uint8_t)*pc_current_string_pos);  
 							//0x30 not always ON, 0x31 always ON	
@@ -636,7 +658,7 @@ void esp_state_machine(void)
 							}
 						break;
 
-						case 'O':  //switch AP on / off
+						case ESP_CMD_SET_AP_ON_OFF:  //switch AP on / off
 						pc_current_string_pos++;
 						u8work_int = esp_ap_control((uint8_t)*pc_current_string_pos);
 						
@@ -649,7 +671,54 @@ void esp_state_machine(void)
 							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
 						}
 						break;
+						
+						case ESP_CMD_SET_BYTE_EEPROM:  //Generic command to set a byte in EEPROM: #(Addr=2byte)(Data=1Byte)
+							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+							pc_current_string_pos++;
+							u8work_int = (*pc_current_string_pos)-0x30;  //MSB of address converted from ascii to int with -0x30
+							pc_current_string_pos++;  //LSB of address
+							
+							uart_send_uhex((u8work_int<<8)|((*pc_current_string_pos)-0x30));
+							uart_newline();
+							
+							*ac_work_string = *(pc_current_string_pos+1);
+							uart_send_uhex(*ac_work_string);
+							uart_newline();
+							
+							eeprom_write_byte((u8work_int<<8)|((*pc_current_string_pos)-0x30),(uint8_t)*ac_work_string);
 
+							esp_response(esp_sender_ID, esp_client_IP, "DONE");
+							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+						break;
+						
+						case ESP_CMD_GET_BYTE_EEPROM:
+							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+							pc_current_string_pos++;
+							u8work_int = (*pc_current_string_pos)-0x30;  //MSB of address
+							pc_current_string_pos++;  //LSB of address
+
+							uart_send_uhex((u8work_int<<8)|((*pc_current_string_pos)-0x30));
+							uart_newline();
+
+							u8work_int = eeprom_read_byte((u8work_int<<8)|((*pc_current_string_pos)-0x30));
+
+							*(ac_work_string) = u8work_int;
+							uart_send_string(ac_work_string);
+							esp_response(esp_sender_ID, esp_client_IP, ac_work_string);
+							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+						break;						
+
+						case ESP_CMD_RESET_EEPROM:
+							eeprom_write_byte(EEL_FIRST_START,0);
+							eeprom_init();
+							esp_response(esp_sender_ID, esp_client_IP, "DONE");
+						break;
+						
+						case ESP_CMD_RESET_SYSTEM:
+							//Use Watchdog Timer and an infinite loop to reset the processor
+						break;
+						
+						
 						default:
 						//do nothing
 						break;
@@ -657,7 +726,7 @@ void esp_state_machine(void)
 					u8work_int = 0;  //reset
 					timer_delay_ms(2000);
 				}
-				else if(*pc_current_string_pos == '@') //we receive network credentials - command begins with @
+				else if(*pc_current_string_pos == ESP_SYM_DATA_IS_SSID) //we receive network credentials - command begins with @
 				{
 					pc_current_string_pos++;
 					strcpy(esp_wifi_credentials, pc_current_string_pos);
@@ -727,7 +796,7 @@ void esp_state_machine(void)
 					//now it's possible to turn AP off if this is the setting in eeprom
 					if(eeprom_read_byte(EEL_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
 					{
-						u8work_int = esp_ap_control(AP_OFF);
+						u8work_int = esp_ap_control(ESP_SYM_AP_OFF);
 						if (u8work_int != ESP_RETURN_AP_OFF)
 						{
 							uart_send_string(ERROR_ESP_STATE_JOIN_NEW_NETWORK_ESP_RETURN_CONNECT_SUCCESS_FailedAPSetting);

@@ -95,7 +95,17 @@
 #endif
 
 //ESP & StateMachine functionality configuration
-#define ESP_CONFIG_INIT_DELAY				(8000) //value is ms, try with smaller delay: 10s OK, 8s ???, 6s NOK (ok, but not on all networks)
+/* ESP init delay configuration:
+ * Sometimes, on some networks it takes a longer time to get the IP,
+ * for this reason in state HW_INIT it's possible to incorrectly detect 
+ * no network connection. 
+ * To avoid this, use a slightly longer init delay.
+ * Tests with different init delay values:
+ * 10s => works ok on ALL tested networks
+ * 8s => works ok on SOME of tested networks
+ * 6s => works ok on SOME of tested networks
+ */
+#define ESP_CONFIG_INIT_DELAY				(10000) //value is ms
 #define ESP_CONFIG_TCP_PORT					"1001"
 #define ESP_CONFIG_TCP_TIMEOUT				"60"  //seconds before tcp connection is closed
 #define ESP_CONFIG_FORCE_WIFI_SETUP			(0)
