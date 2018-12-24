@@ -69,6 +69,7 @@
 #define ESP_SYM_DATA_IS_PWM_DC			('#')
 #define ESP_SYM_DATA_IS_CMD				('#')
 #define ESP_SYM_DATA_IS_SSID			('@')
+#define ESP_SYM_DATA_IS_RESET			('!')
 #define ESP_SYM_AP_OFF					(0x30)
 #define ESP_SYM_AP_ON					(0x31)
 /* To define the maximum waiting time for a response*/
@@ -284,6 +285,9 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 	RST_ESP_SET(0);
 	RST_ESP_SET(1);
 	
+	//timer_delay_ms(100);
+	animation_play();
+	
 	timer_delay_ms(u16init_delay);  //Wait u8init_delay millisecond until ESP is started and finishes standard junk output :)
 	//syncronize ESP8266 with ATMEGA8 and set ESP to accept multiple connections
 	if(send_command("AT", "OK"))
@@ -300,7 +304,7 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 		u8response &= ESP_RETURN_ERROR;
 		uart_send_string(ERROR_ESP_STATE_HW_INIT_FailedSetCipmux);
 	}
-	if(eeprom_read_byte(EEL_AP_ALWAYS_ON) == AP_ALWAYS_ON)
+	if(eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == AP_ALWAYS_ON)
 	{
 		u8work_int = esp_ap_control(ESP_SYM_AP_ON);
 		if(ESP_RETURN_AP_ON == u8work_int) {
@@ -309,7 +313,7 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 			u8response &= ESP_RETURN_ERROR;
 		}
 	} 
-	else if (eeprom_read_byte(EEL_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
+	else if (eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
 	{
 		u8work_int = esp_ap_control(ESP_SYM_AP_OFF);
 		if (ESP_RETURN_AP_OFF == u8work_int) {
@@ -377,6 +381,7 @@ void esp_state_machine(void)
 	{
 		case ESP_STATE_HW_INIT:
 
+			
 			status_led_mode = wait_for_ip;
 			u8work_int = esp_init_hw(ESP_CONFIG_INIT_DELAY);
 			timer_delay_ms(100);
@@ -392,14 +397,10 @@ void esp_state_machine(void)
 				u8esp_current_state = ESP_STATE_START_AP;
 			#else
 			u8work_int = esp_check_connection(ac_ip_check_result);
-			if(ESP_RETURN_CONNECTED == u8work_int) 
-			{
+			if(ESP_RETURN_CONNECTED == u8work_int) {
 				u8esp_current_state = ESP_STATE_START_TCP_SERVER;
 				esp_is_connected = true;
 				status_led_mode = connected_to_ap;
-				//#if STARTUP_ANIMATION_ACTIVE
-				//animation_init();
-				//#endif //STARTUP_ANIMATION_ACTIVE
 			} else if(ESP_RETURN_NOT_CONNECTED == u8work_int) {
 				u8esp_current_state = ESP_STATE_START_AP;
 				esp_is_connected = false;
@@ -525,13 +526,13 @@ void esp_state_machine(void)
 						if(*pc_current_string_pos == '0')  //deactivate auto connect
 						{
 							send_command("AT+CWAUTOCONN=0", "OK");
-							eeprom_write_byte(EEL_ESP_AUTOCONNECT,0x30);
+							eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,0x30);
 							esp_response(esp_sender_ID, esp_client_IP, "0");
 						}
 						else if(*pc_current_string_pos == '1') //activate auto connect
 						{
 							send_command("AT+CWAUTOCONN=1", "OK");
-							eeprom_write_byte(EEL_ESP_AUTOCONNECT,0x31);
+							eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,0x31);
 							esp_response(esp_sender_ID, esp_client_IP, "1");
 						}
 						else{ /*do nothing*/ }
@@ -619,34 +620,34 @@ void esp_state_machine(void)
 							
 							//byte 12 contains the ESP AUTOCONN On / Off setting
 							u8work_int=PWM_CHMAX;
-							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ESP_AUTOCONNECT);
+							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_ESP_AUTOCONNECT);
 							
 							//byte 13 contains the ESP AP ALWAYS ON On / Off setting
 							u8work_int++;
-							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_AP_ALWAYS_ON);
+							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON);
 							
 							//byte 14 contains the StartUpAnimation setting
 							u8work_int++;
-							*(ac_work_string+u8work_int) =  eeprom_read_byte(EEL_STARTUP_ANIMATION);
+							*(ac_work_string+u8work_int) =  eeprom_read_byte(EEL_ADDR_STARTUP_ANIMATION);
 							
 							//byte 15 contains the No Conn Notif
 							u8work_int++;
-							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_NO_CONN_NOTIFICATION);
+							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_NO_CONN_NOTIFICATION);
 							
 							//byte 15 contains the No Conn Power
 							u8work_int++;
-							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_NO_CONN_POWER);
+							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_NO_CONN_POWER);
 
 							//byte 16 contains the Default Power
 							u8work_int++;
-							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_DEFAULT_POWER);
+							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_DEFAULT_POWER);
 							
 							esp_response(esp_sender_ID, esp_client_IP, ac_work_string);
 						break;
 						
 						case ESP_CMD_SET_AP_ALWAYS_ON:  //configure AP to be or not to be always on in EEPROM
 							pc_current_string_pos++;
-							eeprom_write_byte(EEL_AP_ALWAYS_ON, (uint8_t)*pc_current_string_pos);  
+							eeprom_write_byte(EEL_ADDR_AP_ALWAYS_ON, (uint8_t)*pc_current_string_pos);  
 							//0x30 not always ON, 0x31 always ON	
 							if(((*pc_current_string_pos) == AP_ALWAYS_ON) || ((*pc_current_string_pos) == AP_NOT_ALWAYS_ON))
 							{
@@ -677,16 +678,8 @@ void esp_state_machine(void)
 							pc_current_string_pos++;
 							u8work_int = (*pc_current_string_pos)-0x30;  //MSB of address converted from ascii to int with -0x30
 							pc_current_string_pos++;  //LSB of address
-							
-							uart_send_uhex((u8work_int<<8)|((*pc_current_string_pos)-0x30));
-							uart_newline();
-							
 							*ac_work_string = *(pc_current_string_pos+1);
-							uart_send_uhex(*ac_work_string);
-							uart_newline();
-							
 							eeprom_write_byte((u8work_int<<8)|((*pc_current_string_pos)-0x30),(uint8_t)*ac_work_string);
-
 							esp_response(esp_sender_ID, esp_client_IP, "DONE");
 							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 						break;
@@ -696,20 +689,14 @@ void esp_state_machine(void)
 							pc_current_string_pos++;
 							u8work_int = (*pc_current_string_pos)-0x30;  //MSB of address
 							pc_current_string_pos++;  //LSB of address
-
-							uart_send_uhex((u8work_int<<8)|((*pc_current_string_pos)-0x30));
-							uart_newline();
-
 							u8work_int = eeprom_read_byte((u8work_int<<8)|((*pc_current_string_pos)-0x30));
-
 							*(ac_work_string) = u8work_int;
-							uart_send_string(ac_work_string);
 							esp_response(esp_sender_ID, esp_client_IP, ac_work_string);
 							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 						break;						
 
 						case ESP_CMD_RESET_EEPROM:
-							eeprom_write_byte(EEL_FIRST_START,0);
+							eeprom_write_byte(EEL_ADDR_FIRST_START,0);
 							eeprom_init();
 							esp_response(esp_sender_ID, esp_client_IP, "DONE");
 						break;
@@ -794,7 +781,7 @@ void esp_state_machine(void)
 					esp_is_connected = true;
 					status_led_mode = connected_to_ap;
 					//now it's possible to turn AP off if this is the setting in eeprom
-					if(eeprom_read_byte(EEL_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
+					if(eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
 					{
 						u8work_int = esp_ap_control(ESP_SYM_AP_OFF);
 						if (u8work_int != ESP_RETURN_AP_OFF)

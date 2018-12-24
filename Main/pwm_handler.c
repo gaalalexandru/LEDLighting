@@ -90,7 +90,7 @@ uint8_t pwm_save_default_dutycycle(uint8_t u8duty)
 	uint8_t u8data_check;
 	if((u8duty>=PWM_DUTY_CYCLE_RESET_VALUE)&&(u8duty<=PWM_DUTY_MAX_VALUE))
 	{
-		eeprom_write_byte(EEL_DEFAULT_POWER, u8duty);
+		eeprom_write_byte(EEL_ADDR_DEFAULT_POWER, u8duty);
 		u8data_check = 1;
 	}
 	else
@@ -102,7 +102,7 @@ uint8_t pwm_save_default_dutycycle(uint8_t u8duty)
 
 uint8_t pwm_load_default_dutycycle(void)
 {
-	return (eeprom_read_byte(EEL_DEFAULT_POWER));
+	return (eeprom_read_byte(EEL_ADDR_DEFAULT_POWER));
 }
 
 void pwm_init(void)
@@ -113,15 +113,18 @@ void pwm_init(void)
 	
 	u8anim = animation_load_startup_anim();
 	if(u8anim == ANIMATION_SUA_NONE)
-	//if no startup animation is coded, just simply start LEDs
+	//if no startup animation is coded, just simply start LEDs at preset value
 	{
 		pwm = pwm_load_default_dutycycle();
-		for (i = 0; i < PWM_CHMAX; i++) // initialize all channels
-		{
-			pwm_width[i]  = pwm; // set default PWM values
-			pwm_width_buffer[i] = pwm; // set default PWM values
-		}
+	} else { //set light off, startup animation will start them
+		pwm = PWM_DUTY_CYCLE_RESET_VALUE;
 	}
+	for (i = 0; i < PWM_CHMAX; i++) // initialize all channels
+	{
+		pwm_width[i]  = pwm; // set default PWM values
+		pwm_width_buffer[i] = pwm; // set default PWM values
+		}
+
 	DDRB |= 0x07;  //Set output pin 0, 1, 2 of port B
 	DDRD |= 0xE0;  //Set output pin 5, 6, 7 of port D
 	DDRC |= 0x3F;  //Set output pin 0, 1, 2, 3, 4, 5 of port C

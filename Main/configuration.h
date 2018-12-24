@@ -38,7 +38,7 @@
 #define STATUS_LED_ACTIVE			(1)	//enable timer1 and status LED init & toggle
 #define DEBUGPIN_ACTIVE				(0)	//enable free pin to be used for debugging / measurements
 #define TERMINAL_DEBUG_ACTIVE		(0) //enable the print of various information to terminal
-#define STARTUP_ANIMATION_ACTIVE	(0)	//toggle startup animation
+#define STARTUP_ANIMATION_ACTIVE	(1)	//toggle startup animation
 
 /************************************************************************/
 /*							UART CONFIGURATIONS							*/
@@ -61,7 +61,6 @@
 /*							PWM CONFIGURATIONS							*/
 /************************************************************************/
 #define PWM_CHMAX 12 //maximum number of pwm channels
-#define PWMDEFAULT 0x00  //default pulse width
 #define PWM_DUTY_MAX_VALUE 0x44  //number of duty cycle adjustments 
 //0x30 = 0%, 0x31 = 5%, 0x32 = 10%, 0x3A = 50%, 0x3B = 55%
 //0x3C = 60%, 0x3D = 65%, 0x3F = 75%, 0x40 = 80%, 0x43 = 95%, 0x44 = 100%
@@ -125,9 +124,10 @@
 /************************************************************************/
 /*						ANIMATION CONFIGURATIONS						*/
 /************************************************************************/
-#define ANIMATION_SUA_NONE		(0x30)
-#define ANIMATION_SUA_CIRCLE	(0x31)
-#define ANIMATION_SUA_SMOOTH	(0x32)
+#define ANIMATION_SUA_NONE			(0x30)
+#define ANIMATION_SUA_CIRCLE		(0x31)
+#define ANIMATION_SUA_SMOOTH		(0x32)
+#define ANIMATION_CONFIG_SUA_SPEED	(70)  //smaller value = faster
 
 #define ANIMATION_NONET_NONE	(0x30)
 #define ANIMATION_NONET_BLINK	(0x31)
@@ -142,14 +142,14 @@
 /************************************************************************/
 /*							EEPROM CONFIG & LAYOUT						*/
 /************************************************************************/
-#define EEL_FIRST_START			(0X0000)	//0=Yes, 1=No
-#define EEL_STARTUP_ANIMATION	(0x0001)	//30=None, 31=circle, 32=smooth
-#define EEL_DEFAULT_POWER		(0x0002)	//0x30=0%, 0x44=100%
-#define EEL_NO_CONN_NOTIFICATION	(0x0003)	//30=None, 31=blink, 32=XX% power
-#define EEL_NO_CONN_POWER		(0x0004)	//0x30=0%, 0x44=100%
-#define EEL_DEVICE_ID			(0x0005)	//0x41 -> 0x5A
-#define EEL_AP_ALWAYS_ON		(0x0006)	//0x30 Not always on, 0x31 Always on
-#define EEL_ESP_AUTOCONNECT		(0x0007)	//0x30 ESP Autoconnect Off, 0x31 Autoconn On
+#define EEL_ADDR_FIRST_START			(0X0000)  //0=Yes, 1=No
+#define EEL_ADDR_STARTUP_ANIMATION		(0x0001)  //30=None, 31=circle, 32=smooth
+#define EEL_ADDR_DEFAULT_POWER			(0x0002)  //0x30=0%, 0x44=100%
+#define EEL_ADDR_NO_CONN_NOTIFICATION	(0x0003)  //30=None, 31=blink, 32=XX% power
+#define EEL_ADDR_NO_CONN_POWER			(0x0004)  //0x30=0%, 0x44=100%
+#define EEL_ADDR_DEVICE_ID				(0x0005)  //0x41 -> 0x5A
+#define EEL_ADDR_AP_ALWAYS_ON			(0x0006)  //0x30 Not always on, 0x31 Always on
+#define EEL_ADDR_ESP_AUTOCONNECT		(0x0007)  //0x30 ESP Autoconnect Off, 0x31 Autoconn On
 
 #define EEL_WIFI_CREDENTIALS_LENGTH	(0x000A) //address to store length of wifi credentials string (ssid & password) 
 #define EEL_WIFI_CREDENTIALS_START	(0x000B) //start address to store wifi credentials

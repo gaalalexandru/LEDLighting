@@ -11,7 +11,7 @@
 
 #include <stdbool.h>
 
-void animation_init(void);
+void animation_play(void);
 void animation_setallchannels(const bool level);
 
 uint8_t animation_save_startup_anim(uint8_t u8data);

@@ -27,7 +27,7 @@
  * ERR_A02	| AP Control: Failed AP setting
  * ERR_E01	| EEPROM: Not enough space for WiFi credentials (@save)
  * ERR_E02	| EEPROM: Not enough space for WiFi credentials (@load)
- * ERR__	| 
+ * ERR_A05	| ANIMATION: Undefined animation coded in EEPROM
  */
  
 #define ERROR_ESP_STATE_HW_INIT_UndefinedAPConfigStored									"ERR_S00"
@@ -44,6 +44,7 @@
 #define ERROR_ESP_STATE_JOIN_NEW_NETWORK_UndefinedConnectionStatus						"ERR_S55"
 #define ERROR_ESP_AP_CONTROL_UndefinedAPModeRequested									"ERR_A01"
 #define ERROR_ESP_AP_CONTROL_FailedAPSetting											"ERR_A02"
+#define ERROR_ANIMATION_UndefinedAnimationCoded											"ERR_A05"
 #define ERROR_EEPROM_SaveCredentialsOverflow											"ERR_E01"
 #define ERROR_EEPROM_LoadCredentialsOverflow											"ERR_E02"
 

@@ -49,9 +49,9 @@ int main(void)
 	#endif  //LIGHTING_FUNCTIN
 	
 	sei();  // enable global interrupts
-	
+
 	#if STARTUP_ANIMATION_ACTIVE
-	animation_init();
+	//animation_play();
 	#endif //STARTUP_ANIMATION_ACTIVE
 	
     while(1)

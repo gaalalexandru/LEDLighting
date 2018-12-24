@@ -1,1 +1,2 @@
 V1 released
+V2 new features
