@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include "esp_wifi_handler.h"
+#include "esp_wifi_handler_defs.h"
 #include "configuration.h"
 #include "uart_handler.h"
 #include "timer_handler.h"
@@ -27,61 +28,6 @@
 #define	CH_PD_DIR	ESP_ENABLE_DDR |= (1 << ESP_ENABLE_PIN)
 #define RST_ESP_SET(x)	((x) ? (ESP_RST_PORT |= (1 << ESP_RST_PIN)) : (ESP_RST_PORT &= ~(1 << ESP_RST_PIN)))
 #define	CH_PD_SET(x)	((x) ? (ESP_ENABLE_PORT |= (1 << ESP_ENABLE_PIN)) : (ESP_ENABLE_PORT &= ~(1 << ESP_ENABLE_PIN)))
-
-//esp_state_machine defined states
-#define ESP_STATE_HW_INIT			(0)
-#define ESP_STATE_CHECK_CONNECTION	(1)
-#define	ESP_STATE_START_AP			(2)
-#define ESP_STATE_START_TCP_SERVER	(3)
-#define ESP_STATE_WAIT_DATA			(4)
-#define ESP_STATE_JOIN_NEW_NETWORK	(5)
-
-//esp_wifi_handler defined return codes
-#define ESP_RETURN_NDEF				(0xFF)
-#define ESP_RETURN_ERROR			(0)
-#define ESP_RETURN_OK				(1)
-#define ESP_RETURN_NOT_CONNECTED	(2)
-#define ESP_RETURN_CONNECTED		(3)
-#define ESP_RETURN_AP_ON			(4)
-#define ESP_RETURN_AP_OFF			(5)
-#define ESP_RETURN_CONNECT_FAILED	(6)
-#define ESP_RETURN_CONNECT_SUCCESS	(7)
-
-//esp_wifi_handler defined commands
-#define ESP_CMD_GET_STA_IP				('E')
-#define ESP_CMD_SET_AUTOCONNECT			('F')
-#define ESP_CMD_SET_DEFAULT_PWM			('G')
-#define ESP_CMD_SET_STARTUP_ANIM		('H')
-#define ESP_CMD_SET_NO_NETWORK_ANIM		('I')
-#define ESP_CMD_SET_NO_NETWORK_POWER	('J')
-#define ESP_CMD_GET_DEVICE_ID			('K')
-#define ESP_CMD_SET_DEVICE_ID			('L')
-#define ESP_CMD_GET_DEVICE_SETTINGS		('M')
-#define ESP_CMD_SET_AP_ALWAYS_ON		('N')
-#define ESP_CMD_SET_AP_ON_OFF			('O')
-#define ESP_CMD_SET_BYTE_EEPROM			('P')
-#define ESP_CMD_GET_BYTE_EEPROM			('Q')
-#define ESP_CMD_RESET_EEPROM			('R')
-#define ESP_CMD_RESET_SYSTEM			('X')
-
-//esp_wifi_handler defined symbols
-#define ESP_SYM_DATA_IS_PWM_CH			('$')
-#define ESP_SYM_DATA_IS_PWM_DC			('#')
-#define ESP_SYM_DATA_IS_CMD				('#')
-#define ESP_SYM_DATA_IS_SSID			('@')
-#define ESP_SYM_DATA_IS_RESET			('!')
-#define ESP_SYM_AP_OFF					(0x30)
-#define ESP_SYM_AP_ON					(0x31)
-/* To define the maximum waiting time for a response*/
-#define SET_RESPONSE_TIMEOUT(x)	(response_max_timestamp =  (timer_ms() + ((x) * 1000)))
-/* Will return true if timeout expired*/
-#define WAITING_RESPONSE()	(response_max_timestamp > timer_ms())
-#define BUFFER_SIZE_GENERIC_WORK_STRING		(32)
-#define BUFFER_SIZE_WIFI_CREDENTIALS_STRING	(40)
-#define BUFFER_SIZE_SERIAL_RESULT			(101)
-#define BUFFER_SIZE_IP_STRING				(15)
-#define true  1
-#define false 0
 
 /************************************************************************/
 /*                           Global variables                           */
@@ -306,7 +252,7 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 		u8response &= ESP_RETURN_ERROR;
 		uart_send_string(ERROR_ESP_STATE_HW_INIT_FailedSetCipmux);
 	}
-	if(eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == AP_ALWAYS_ON)
+	if(eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == ESP_SYM_AP_ALWAYS_ON)
 	{
 		u8work_int = esp_ap_control(ESP_SYM_AP_ON);
 		if(ESP_RETURN_AP_ON == u8work_int) {
@@ -315,7 +261,7 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 			u8response &= ESP_RETURN_ERROR;
 		}
 	} 
-	else if (eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
+	else if (eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == ESP_SYM_AP_NOT_ALWAYS_ON)
 	{
 		u8work_int = esp_ap_control(ESP_SYM_AP_OFF);
 		if (ESP_RETURN_AP_OFF == u8work_int) {
@@ -525,19 +471,38 @@ void esp_state_machine(void)
 						
 						case ESP_CMD_SET_AUTOCONNECT:  //F command: activate / deactivate ESP auto connect to saved network
 						pc_current_string_pos++;
+						#if 1
+						if((*pc_current_string_pos == ESP_SYM_AUTOCONNECT_ON) || \
+						(*pc_current_string_pos == ESP_SYM_AUTOCONNECT_OFF)) {
+							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+							strcpy(ac_work_string,"AT+CWAUTOCONN=");
+							strcat(ac_work_string,pc_current_string_pos);
+							if (send_command(ac_work_string,"OK")) {
+								eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,*pc_current_string_pos);
+								esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
+							} else {
+								esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
+							}
+							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+						} else {
+							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"NOTDEF"));
+						}
+						#else
 						if(*pc_current_string_pos == '0')  //deactivate auto connect
 						{
 							send_command("AT+CWAUTOCONN=0", "OK");
-							eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,0x30);
+							eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,ESP_SYM_AUTOCONNECT_ON);
 							esp_response(esp_sender_ID, esp_client_IP, "0");
 						}
 						else if(*pc_current_string_pos == '1') //activate auto connect
 						{
 							send_command("AT+CWAUTOCONN=1", "OK");
-							eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,0x31);
+							eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,ESP_SYM_AUTOCONNECT_OFF);
 							esp_response(esp_sender_ID, esp_client_IP, "1");
 						}
 						else{ /*do nothing*/ }
+						#endif
+						
 						break;
 						
 						case ESP_CMD_SET_DEFAULT_PWM:  //G command: set default PWM (will be stored in EEPROM)
@@ -651,7 +616,7 @@ void esp_state_machine(void)
 							pc_current_string_pos++;
 							eeprom_write_byte(EEL_ADDR_AP_ALWAYS_ON, (uint8_t)*pc_current_string_pos);  
 							//0x30 not always ON, 0x31 always ON	
-							if(((*pc_current_string_pos) == AP_ALWAYS_ON) || ((*pc_current_string_pos) == AP_NOT_ALWAYS_ON))
+							if(((*pc_current_string_pos) == ESP_SYM_AP_ALWAYS_ON) || ((*pc_current_string_pos) == ESP_SYM_AP_NOT_ALWAYS_ON))
 							{
 								esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
 							}
@@ -783,7 +748,7 @@ void esp_state_machine(void)
 					esp_is_connected = true;
 					status_led_mode = connected_to_ap;
 					//now it's possible to turn AP off if this is the setting in eeprom
-					if(eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
+					if(eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == ESP_SYM_AP_NOT_ALWAYS_ON)
 					{
 						u8work_int = esp_ap_control(ESP_SYM_AP_OFF);
 						if (u8work_int != ESP_RETURN_AP_OFF)

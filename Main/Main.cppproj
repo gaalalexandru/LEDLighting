@@ -155,6 +155,9 @@
     <Compile Include="errors.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="esp_wifi_handler_defs.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="manual_control.c">
       <SubType>compile</SubType>
     </Compile>

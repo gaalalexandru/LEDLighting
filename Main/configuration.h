@@ -10,6 +10,7 @@
 
 #include <avr/io.h>
 #include <avr/portpins.h>
+#include "esp_wifi_handler_defs.h"
 
 /************************************************************************/
 /*						   CONTROLLER SELECTION							*/
@@ -135,12 +136,6 @@
 #define ANIMATION_CONFIG_NONET_BLINK_SPEED	(10)  //smaller value = faster
 #define ANIMATION_CONFIG_NONET_BLINK_POWER	(PWM_CONFIG_DUTY_CYCLE_RESET_VALUE+1)	// set noconnection animation pwm target
 
-#define AP_NOT_ALWAYS_ON	(0x30)
-#define AP_ALWAYS_ON		(0x31)
-
-
-
-
 /************************************************************************/
 /*							EEPROM CONFIG & LAYOUT						*/
 /************************************************************************/
@@ -151,19 +146,20 @@
 #define EEL_ADDR_NO_CONN_POWER			(0x0004)  //0x30=0%, 0x44=100%
 #define EEL_ADDR_DEVICE_ID				(0x0005)  //0x41 -> 0x5A
 #define EEL_ADDR_AP_ALWAYS_ON			(0x0006)  //0x30 Not always on, 0x31 Always on
-#define EEL_ADDR_ESP_AUTOCONNECT		(0x0007)  //0x30 ESP Autoconnect Off, 0x31 Autoconn On
+#define EEL_ADDR_ESP_AUTOCONNECT		(0x0007)  //0x30 ESP Autoconnect Off, 0x31 Autoconnect On
 
 #define EEL_ADDR_WIFI_CREDENTIALS_LENGTH	(0x000A) //address to store length of wifi credentials string (ssid & password) 
 #define EEL_ADDR_WIFI_CREDENTIALS_START		(0x000B) //start address to store wifi credentials
 #define EEL_ADDR_WIFI_CREDENTIALS_END		((0x000B)+40)  //end address to store wifi credentials (start + 40 bytes)
 
-#define EEPROM_INITIALIZED	(0x49)  //'I' character, meaning EEPROM is initialized with default values.
-#define EEL_FACTORY_SUA		(ANIMATION_SYM_SUA_CIRCLE)  //No startup animation by factory settings
-#define EEL_FACTORY_POWER	(PWM_CONFIG_DUTY_MAX_VALUE)	//0x44=100% power
-#define EEL_FACTORY_NNN		(ANIMATION_SYM_NONET_BLINK)  //No network notification set to none
-#define EEL_FACTORY_NNN_PWR	(0x00)  //None, just initialize eeprom location
-#define EEL_FACTORY_ID		(0x00)  //None, just initialize eeprom location
-#define EEL_FACTORY_AP_ON	(AP_NOT_ALWAYS_ON)  //AP set to be always on by factory
+#define EEPROM_INITIALIZED		(0x49)  //'I' character, meaning EEPROM is initialized with default values.
+#define EEL_FACTORY_SUA			(ANIMATION_SYM_SUA_CIRCLE)
+#define EEL_FACTORY_POWER		(PWM_CONFIG_DUTY_MAX_VALUE)
+#define EEL_FACTORY_NNN			(ANIMATION_SYM_NONET_BLINK)
+#define EEL_FACTORY_NNN_PWR		(PWM_CONFIG_DUTY_CYCLE_RESET_VALUE+1)
+#define EEL_FACTORY_ID			(EEPROM_INVALID_ID)
+#define EEL_FACTORY_AP_ON		(ESP_SYM_AP_NOT_ALWAYS_ON)
+#define EEL_FACTORY_AUTOCONNECT	(ESP_SYM_AUTOCONNECT_ON)
 
 #define EEPROM_INVALID_ID	(0)
 #define EEPROM_MIN_ID		(0x41)
