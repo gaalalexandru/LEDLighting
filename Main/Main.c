@@ -50,10 +50,6 @@ int main(void)
 	
 	sei();  // enable global interrupts
 
-	#if STARTUP_ANIMATION_ACTIVE
-	//animation_play();
-	#endif //STARTUP_ANIMATION_ACTIVE
-	
     while(1)
     {
 		#if PWM_TERMINAL_CONTROL

@@ -11,8 +11,9 @@
 
 #include <stdbool.h>
 
-void animation_play(void);
-void animation_setallchannels(const bool level);
+void animation_play_startup(void);
+void animation_play_nonetwork(void);
+void animation_stop_nonetwork(void);
 
 uint8_t animation_save_startup_anim(uint8_t u8data);
 uint8_t animation_save_no_netw_anim(uint8_t u8data);

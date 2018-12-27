@@ -95,7 +95,7 @@ char esp_station_IP[BUFFER_SIZE_IP_STRING];
 // so we want to reply to the right sender who sent ssid and pass
 uint8_t esp_sender_ID = 0;
 volatile uint32_t response_max_timestamp;
-extern volatile uint8_t pwm_width_buffer[PWM_CHMAX];
+extern volatile uint8_t pwm_width_buffer[PWM_CONFIG_CHMAX];
 extern volatile status_led_mode_t status_led_mode;
 
 /************************************************************************/
@@ -286,7 +286,9 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 	RST_ESP_SET(1);
 	
 	//timer_delay_ms(100);
-	animation_play();
+	//startup animation has to be called after the ESP reset and enable pins are set
+	//otherwise ESP might not start up
+	animation_play_startup();
 	
 	timer_delay_ms(u16init_delay);  //Wait u8init_delay millisecond until ESP is started and finishes standard junk output :)
 	//syncronize ESP8266 with ATMEGA8 and set ESP to accept multiple connections
@@ -613,13 +615,13 @@ void esp_state_machine(void)
 						case ESP_CMD_GET_DEVICE_SETTINGS: //M command:sync device settings
 							//byte 0 -> 11 of response contain the channel PWM duty cycles
 							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
-							for (u8work_int=0; u8work_int<PWM_CHMAX; u8work_int++)
+							for (u8work_int=0; u8work_int<PWM_CONFIG_CHMAX; u8work_int++)
 							{
 								*(ac_work_string+u8work_int) = pwm_width_buffer[u8work_int];
 							}
 							
 							//byte 12 contains the ESP AUTOCONN On / Off setting
-							u8work_int=PWM_CHMAX;
+							u8work_int=PWM_CONFIG_CHMAX;
 							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_ESP_AUTOCONNECT);
 							
 							//byte 13 contains the ESP AP ALWAYS ON On / Off setting

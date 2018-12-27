@@ -96,15 +96,15 @@ uint8_t eeprom_save_id(uint8_t u8dev_id)
 int8_t eeprom_save_wifi_credentials(char *pcwifi_credentials) 
 {
 	uint8_t i8wifi_credentials_length = 0;
-	uint16_t u16wifi_credentials_address = EEL_WIFI_CREDENTIALS_START;
+	uint16_t u16wifi_credentials_address = EEL_ADDR_WIFI_CREDENTIALS_START;
 	
 	#if EEPROM_CONFIG_CLEAR_CREDENTIALS_STORAGE
-	for (u16wifi_credentials_address = EEL_WIFI_CREDENTIALS_START; \
-		u16wifi_credentials_address < EEL_WIFI_CREDENTIALS_END; \
+	for (u16wifi_credentials_address = EEL_ADDR_WIFI_CREDENTIALS_START; \
+		u16wifi_credentials_address < EEL_ADDR_WIFI_CREDENTIALS_END; \
 		u16wifi_credentials_address++) {
 		eeprom_write_byte(u16wifi_credentials_address,0);
 	}
-	u16wifi_credentials_address = EEL_WIFI_CREDENTIALS_START;
+	u16wifi_credentials_address = EEL_ADDR_WIFI_CREDENTIALS_START;
 	#endif //EEPROM_CONFIG_CLEAR_CREDENTIALS_STORAGE
 	do
 	{
@@ -112,18 +112,18 @@ int8_t eeprom_save_wifi_credentials(char *pcwifi_credentials)
 		pcwifi_credentials++;
 		i8wifi_credentials_length++;
 		u16wifi_credentials_address++;
-	} while((*pcwifi_credentials) && (u16wifi_credentials_address < EEL_WIFI_CREDENTIALS_END));
+	} while((*pcwifi_credentials) && (u16wifi_credentials_address < EEL_ADDR_WIFI_CREDENTIALS_END));
 	/* End of the allocated 40 bytes for storing credentials is reached 
 	 * but there are more data in the string to store, set return value to -1
 	 */
-	if ((u16wifi_credentials_address == EEL_WIFI_CREDENTIALS_END) && (*pcwifi_credentials))
+	if ((u16wifi_credentials_address == EEL_ADDR_WIFI_CREDENTIALS_END) && (*pcwifi_credentials))
 	{
 		i8wifi_credentials_length = -1;
 	}
-	//in case of a valid length, save it to address EEL_WIFI_CREDENTIALS_LENGTH for later use
+	//in case of a valid length, save it to address EEL_ADDR_WIFI_CREDENTIALS_LENGTH for later use
 	if (i8wifi_credentials_length > 0)
 	{
-		eeprom_write_byte(EEL_WIFI_CREDENTIALS_LENGTH,(uint8_t)i8wifi_credentials_length);
+		eeprom_write_byte(EEL_ADDR_WIFI_CREDENTIALS_LENGTH,(uint8_t)i8wifi_credentials_length);
 	}
 	return i8wifi_credentials_length;
 }
@@ -132,17 +132,17 @@ int8_t eeprom_load_wifi_credentials(char *pcwifi_credentials)
 {
 	uint8_t u8wifi_credentials_length = 0;
 	int8_t i8response = 0;
-	u8wifi_credentials_length = eeprom_read_byte(EEL_WIFI_CREDENTIALS_LENGTH);
+	u8wifi_credentials_length = eeprom_read_byte(EEL_ADDR_WIFI_CREDENTIALS_LENGTH);
 	i8response = u8wifi_credentials_length;
-	uint16_t u16wifi_credentials_address = EEL_WIFI_CREDENTIALS_START;
-	while((u8wifi_credentials_length) && (u16wifi_credentials_address <= EEL_WIFI_CREDENTIALS_END));
+	uint16_t u16wifi_credentials_address = EEL_ADDR_WIFI_CREDENTIALS_START;
+	while((u8wifi_credentials_length) && (u16wifi_credentials_address <= EEL_ADDR_WIFI_CREDENTIALS_END));
 	{
-		*pcwifi_credentials = eeprom_read_byte(EEL_WIFI_CREDENTIALS_START);
+		*pcwifi_credentials = eeprom_read_byte(EEL_ADDR_WIFI_CREDENTIALS_START);
 		u8wifi_credentials_length--;
 		pcwifi_credentials++;
 	}
 	//if remaining length != 0 and end address is reached, set return value to -1
-	if ((u8wifi_credentials_length) && (u16wifi_credentials_address = EEL_WIFI_CREDENTIALS_END))
+	if ((u8wifi_credentials_length) && (u16wifi_credentials_address = EEL_ADDR_WIFI_CREDENTIALS_END))
 	{
 		i8response = -1;
 	}

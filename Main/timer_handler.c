@@ -23,7 +23,7 @@
 /*	                          Global Variables                          */
 /************************************************************************/
 volatile uint32_t timer_system_ms = 0;  //system startup counter in milliseconds
-extern volatile uint8_t gb_esp_is_connected;
+extern volatile uint8_t esp_is_connected;
 
 /************************************************************************/
 /*	                  Timer Initialization Functions                    */
@@ -144,21 +144,18 @@ ISR (TIMER0_OVF_vect)
 /* Timer1 Compare Match A Interrupt function*/
 ISR (TIMER1_COMPA_vect)
 {
-	#if NOCONNECTION_ANIMATION_FUNCTION
-	if(gb_esp_is_connected == false)
+	static uint8_t u8counter = 0;
+	
+	if(esp_is_connected == false)
 	{
-		static uint8_t counter = 0;
-		static uint8_t toggle = 0;
-		++counter;
-		if (counter == 10)	// 1second
+		if (u8counter == ANIMATION_CONFIG_NONET_BLINK_SPEED)	// 1second
 		{
-			counter = 0;
-			animation_setallchannels(toggle);
-			toggle ^= 1;
+			u8counter = 0;
+			animation_play_nonetwork();
+		} else {
+			u8counter++;
 		}
 	}
-	#endif //NOCONNECTION_ANIMATION_FUNCTION
-	
 	status_led_update();
 }
 
