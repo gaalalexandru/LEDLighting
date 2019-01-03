@@ -58,10 +58,6 @@
 #define ESP_SYM_AP_NOT_ALWAYS_ON	(0x30)
 #define ESP_SYM_AP_ALWAYS_ON		(0x31)
 
-/* To define the maximum waiting time for a response*/
-#define SET_RESPONSE_TIMEOUT(x)	(response_max_timestamp =  (timer_ms() + ((x) * 1000)))
-/* Will return true if timeout expired*/
-#define WAITING_RESPONSE()	(response_max_timestamp > timer_ms())
 #define BUFFER_SIZE_GENERIC_WORK_STRING		(32)
 #define BUFFER_SIZE_WIFI_CREDENTIALS_STRING	(40)
 #define BUFFER_SIZE_SERIAL_RESULT			(101)

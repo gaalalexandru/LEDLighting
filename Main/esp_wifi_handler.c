@@ -29,17 +29,22 @@
 #define RST_ESP_SET(x)	((x) ? (ESP_RST_PORT |= (1 << ESP_RST_PIN)) : (ESP_RST_PORT &= ~(1 << ESP_RST_PIN)))
 #define	CH_PD_SET(x)	((x) ? (ESP_ENABLE_PORT |= (1 << ESP_ENABLE_PIN)) : (ESP_ENABLE_PORT &= ~(1 << ESP_ENABLE_PIN)))
 
+/* To define the maximum waiting time for a response*/
+#define SET_RESPONSE_TIMEOUT(x)	(response_max_timestamp =  (timer_ms() + ((x) * 1000)))
+/* Will return true if timeout expired*/
+#define WAITING_RESPONSE()	(response_max_timestamp > timer_ms())
+
 /************************************************************************/
 /*                           Global variables                           */
 /************************************************************************/
 volatile uint8_t esp_is_connected = false;	// ESP has ip or not
 char esp_wifi_credentials[BUFFER_SIZE_WIFI_CREDENTIALS_STRING];
 char esp_serial_result[BUFFER_SIZE_SERIAL_RESULT];
-char esp_client_IP[BUFFER_SIZE_IP_STRING];
 char esp_station_IP[BUFFER_SIZE_IP_STRING];
 // most often ID is 0 but we can have up to 4 active connections
 // so we want to reply to the right sender who sent ssid and pass
-uint8_t esp_sender_ID = 0;
+//volatile uint8_t esp_connection_ID = 0;  //not used anymore, replaced by local in esp_state_machine, leave for feature reference
+//char esp_client_IP[BUFFER_SIZE_IP_STRING];  //not used anymore, replaced by local in esp_state_machine, leave for feature reference
 volatile uint32_t response_max_timestamp;
 extern volatile uint8_t pwm_width_buffer[PWM_CONFIG_CHMAX];
 extern volatile status_led_mode_t status_led_mode;
@@ -132,18 +137,25 @@ inline static void esp_aux_calc_station_ip(char *workString)
 	strncpy(esp_station_IP, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
 }
 
-//helper function that extracts client ID and IP
-//extracted data is stored in global variables
-inline static void esp_aux_client_data(char *workString)
+//helper function that extracts connection ID and client IP
+inline static void esp_aux_client_data(char *workString, uint8_t *connection_ID, char *client_IP)
 {
 	char *clientIP_begin = NULL;
 	char *clientIP_end = NULL;
-	esp_sender_ID = atoi(workString);	// store ID of sender
+	
+	*connection_ID = atoi(workString);	// store ID of sender
 	workString += 2;  //jump to "," before message length
 	clientIP_begin = strchr(workString, 0x2c);	//jump to next ','
 	clientIP_begin++;  //jump to start of IP
 	clientIP_end = strchr(clientIP_begin, 0x2c);	//jump to next ','
-	strncpy(esp_client_IP, clientIP_begin, (uint8_t)(clientIP_end-clientIP_begin));
+	strncpy(client_IP, clientIP_begin, (uint8_t)(clientIP_end-clientIP_begin));
+	
+	#if 0  //activate to check connection ID and client IP in terminal
+	uart_send_udec(*connection_ID);
+	uart_send_char('>');
+	uart_send_string(client_IP);
+	uart_newline();
+	#endif
 }
 
 // ID is the connection number
@@ -323,7 +335,9 @@ void esp_state_machine(void)
 	char *pc_current_string_pos = NULL;
 	char ac_ip_check_result[BUFFER_SIZE_SERIAL_RESULT];
 	char ac_work_string[BUFFER_SIZE_GENERIC_WORK_STRING];
-	
+	uint8_t u8connection_ID = 0xFF;
+	char ac_client_IP[BUFFER_SIZE_IP_STRING];
+	memset(ac_client_IP, 0, BUFFER_SIZE_IP_STRING);
 	memset(ac_work_string, 0, BUFFER_SIZE_GENERIC_WORK_STRING);
 	switch(u8esp_current_state)
 	{
@@ -430,7 +444,11 @@ void esp_state_machine(void)
 			if(check_until_timeout("+IPD,", 1))
 			{
 				pc_current_string_pos = strstr(esp_serial_result, "+IPD,");
-				esp_aux_client_data(esp_serial_result);
+				pc_current_string_pos = strchr(pc_current_string_pos, ',');  //find end of +IPD, the ',' character right before connection ID
+				pc_current_string_pos++;
+				esp_aux_client_data(pc_current_string_pos, &u8connection_ID, ac_client_IP);
+
+				
 				pc_current_string_pos = strchr(pc_current_string_pos, ':');  //find end of client IP, port nr
 				pc_current_string_pos++;
 				if(*pc_current_string_pos == ESP_SYM_DATA_IS_PWM_CH)  //if we receive a command for PWM setting - command begins with $
@@ -448,11 +466,11 @@ void esp_state_machine(void)
 					if(pwm_wifi_update(u8work_int,  ((uint8_t)*pc_current_string_pos)))
 					{
 						//pwm duty cycle update was successful (values OK)
-						esp_response(esp_sender_ID, esp_client_IP, "OK");
+						esp_response(u8connection_ID, ac_client_IP, "OK");
 					}
 					else
 					{
-						esp_response(esp_sender_ID, esp_client_IP, "ERR");
+						esp_response(u8connection_ID, ac_client_IP, "ERR");
 					}
 					u8work_int = 0;
 				}
@@ -465,7 +483,7 @@ void esp_state_machine(void)
 						if(esp_check_connection(ac_ip_check_result))  //esp station has IP
 						{
 							esp_aux_calc_station_ip(ac_ip_check_result);
-							esp_response(esp_sender_ID, esp_client_IP, esp_station_IP);
+							esp_response(u8connection_ID, ac_client_IP, esp_station_IP);
 						}
 						break;
 						
@@ -479,26 +497,26 @@ void esp_state_machine(void)
 							strcat(ac_work_string,pc_current_string_pos);
 							if (send_command(ac_work_string,"OK")) {
 								eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,*pc_current_string_pos);
-								esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
+								esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 							} else {
-								esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
+								esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 							}
 							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 						} else {
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"NOTDEF"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"NOTDEF"));
 						}
 						#else
 						if(*pc_current_string_pos == '0')  //deactivate auto connect
 						{
 							send_command("AT+CWAUTOCONN=0", "OK");
 							eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,ESP_SYM_AUTOCONNECT_ON);
-							esp_response(esp_sender_ID, esp_client_IP, "0");
+							esp_response(u8connection_ID, ac_client_IP, "0");
 						}
 						else if(*pc_current_string_pos == '1') //activate auto connect
 						{
 							send_command("AT+CWAUTOCONN=1", "OK");
 							eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,ESP_SYM_AUTOCONNECT_OFF);
-							esp_response(esp_sender_ID, esp_client_IP, "1");
+							esp_response(u8connection_ID, ac_client_IP, "1");
 						}
 						else{ /*do nothing*/ }
 						#endif
@@ -509,11 +527,11 @@ void esp_state_machine(void)
 						pc_current_string_pos++;
 						if(pwm_save_default_dutycycle((uint8_t)*pc_current_string_pos))
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 						}
 						else
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 						}
 						break;
 						
@@ -521,11 +539,11 @@ void esp_state_machine(void)
 						pc_current_string_pos++;
 						if(animation_save_startup_anim((uint8_t)*pc_current_string_pos))
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 						}
 						else
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 						}
 						break;
 						
@@ -533,11 +551,11 @@ void esp_state_machine(void)
 						pc_current_string_pos++;
 						if(animation_save_no_netw_anim((uint8_t)*pc_current_string_pos))
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 						}
 						else
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 						}
 						break;
 
@@ -545,11 +563,11 @@ void esp_state_machine(void)
 						pc_current_string_pos++;
 						if(animation_save_no_netw_power((uint8_t)*pc_current_string_pos))
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 						}
 						else
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 						}
 						break;
 
@@ -557,11 +575,11 @@ void esp_state_machine(void)
 						u8work_int = eeprom_load_id();
 						if(u8work_int != EEPROM_INVALID_ID)
 						{
-							esp_response(esp_sender_ID, esp_client_IP, (char*)&u8work_int /*strcat("LL",&u8dev_id)*/);
+							esp_response(u8connection_ID, ac_client_IP, (char*)&u8work_int /*strcat("LL",&u8dev_id)*/);
 						}
 						else
 						{
-							esp_response(esp_sender_ID, esp_client_IP, "NoID");
+							esp_response(u8connection_ID, ac_client_IP, "NoID");
 						}
 						break;
 
@@ -569,11 +587,11 @@ void esp_state_machine(void)
 						pc_current_string_pos++;
 						if(eeprom_save_id((uint8_t)*pc_current_string_pos))
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 						}
 						else
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 						}
 						break;
 
@@ -609,7 +627,7 @@ void esp_state_machine(void)
 							u8work_int++;
 							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_DEFAULT_POWER);
 							
-							esp_response(esp_sender_ID, esp_client_IP, ac_work_string);
+							esp_response(u8connection_ID, ac_client_IP, ac_work_string);
 						break;
 						
 						case ESP_CMD_SET_AP_ALWAYS_ON:  //configure AP to be or not to be always on in EEPROM
@@ -618,11 +636,11 @@ void esp_state_machine(void)
 							//0x30 not always ON, 0x31 always ON	
 							if(((*pc_current_string_pos) == ESP_SYM_AP_ALWAYS_ON) || ((*pc_current_string_pos) == ESP_SYM_AP_NOT_ALWAYS_ON))
 							{
-								esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
+								esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 							}
 							else
 							{
-								esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
+								esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 							}
 						break;
 
@@ -632,11 +650,11 @@ void esp_state_machine(void)
 						
 						if(u8work_int)
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"OK"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 						}
 						else
 						{
-							esp_response(esp_sender_ID, esp_client_IP, strcat(pc_current_string_pos,"ERR"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 						}
 						break;
 						
@@ -647,7 +665,7 @@ void esp_state_machine(void)
 							pc_current_string_pos++;  //LSB of address
 							*ac_work_string = *(pc_current_string_pos+1);
 							eeprom_write_byte((u8work_int<<8)|((*pc_current_string_pos)-0x30),(uint8_t)*ac_work_string);
-							esp_response(esp_sender_ID, esp_client_IP, "DONE");
+							esp_response(u8connection_ID, ac_client_IP, "DONE");
 							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 						break;
 						
@@ -658,14 +676,14 @@ void esp_state_machine(void)
 							pc_current_string_pos++;  //LSB of address
 							u8work_int = eeprom_read_byte((u8work_int<<8)|((*pc_current_string_pos)-0x30));
 							*(ac_work_string) = u8work_int;
-							esp_response(esp_sender_ID, esp_client_IP, ac_work_string);
+							esp_response(u8connection_ID, ac_client_IP, ac_work_string);
 							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 						break;						
 
 						case ESP_CMD_RESET_EEPROM:
 							eeprom_write_byte(EEL_ADDR_FIRST_START,0);
 							eeprom_init();
-							esp_response(esp_sender_ID, esp_client_IP, "DONE");
+							esp_response(u8connection_ID, ac_client_IP, "DONE");
 						break;
 						
 						case ESP_CMD_RESET_SYSTEM:
@@ -743,7 +761,7 @@ void esp_state_machine(void)
 				if(ESP_RETURN_CONNECTED == u8work_int)  //esp station has IP
 				{
 					esp_aux_calc_station_ip(ac_ip_check_result);
-					esp_response(esp_sender_ID, esp_client_IP, esp_station_IP);
+					esp_response(u8connection_ID, ac_client_IP, esp_station_IP);
 					timer_delay_ms(2000);
 					esp_is_connected = true;
 					status_led_mode = connected_to_ap;
@@ -770,7 +788,7 @@ void esp_state_machine(void)
 					}
 					else
 					{
-						esp_response(esp_sender_ID, esp_client_IP, "Could not connect");
+						esp_response(u8connection_ID, ac_client_IP, "Could not connect");
 						timer_delay_ms(2000);
 						u8connection_retry_count = 0;
 						u8esp_current_state = ESP_STATE_START_AP;
@@ -792,7 +810,7 @@ void esp_state_machine(void)
 				}
 				else 
 				{
-					esp_response(esp_sender_ID, esp_client_IP, "Could not connect");
+					esp_response(u8connection_ID, ac_client_IP, "Could not connect");
 					timer_delay_ms(2000);
 					u8connection_retry_count = 0;
 					u8esp_current_state = ESP_STATE_START_AP;
@@ -808,6 +826,7 @@ void esp_state_machine(void)
 		default:
 			//nothing nothing
 		break;
+		memset(ac_client_IP, 0, BUFFER_SIZE_IP_STRING);
 	}
 }
 
