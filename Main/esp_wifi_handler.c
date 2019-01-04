@@ -134,6 +134,13 @@ inline static void esp_aux_calc_station_ip(char *workString)
 	stationIP_begin += 7;
 	stationIP_end = strchr(stationIP_begin, 0x22);	// ' " '
 	uart_flush();
+	/*
+	 * It's possible that in the ESP Station changes it's IP due to new network for example
+	 * The string containing the IP should be re-initialized to empty string before storing new IP
+	 * because old IP might have more characters, and characters over the new IP length will remain.
+	 * Example: OLD IP: 192.168.43.145; New IP: 192.168.1.110; Reported(Stored) IP: 192.168.1.1105
+	 */
+	memset(esp_station_IP,0,BUFFER_SIZE_IP_STRING);
 	strncpy(esp_station_IP, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
 }
 
@@ -163,7 +170,7 @@ inline static void esp_aux_client_data(char *workString, uint8_t *connection_ID,
 static void esp_response(uint8_t ID, char *destination, char *message)
 {
 	//AleGaa The next block is deactivated because we will use persistent TCP connection
-	//Note: Rarely strange behavior was observed, sometimes when joining the router wifi network, the connection is closed too ear
+	//Note: Rarely strange behavior was observed, sometimes when joining the router wifi network, the connection is closed too earlyy
 	#if 0  
 	uart_send_string("AT+CIPSTART="); uart_send_udec(ID); uart_send_string(",\"TCP\""); uart_send_char(0x2c); uart_send_char(0x22); 
 	uart_send_string(destination); uart_send_char(0x22); uart_send_char(0x2c); uart_send_string(ESP_CONFIG_TCP_PORT); uart_newline();
@@ -289,7 +296,7 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 
 // fills parameter with the response for AT+CIFSR command
 // and also returns ESP_RETURN_CONNECTED / ESP_RETURN_NOT_CONNECTED if station has/hasn't got an IP
-static inline uint8_t esp_check_connection(char workString[])
+static inline uint8_t esp_check_connection(/*char workString[]*/)
 {
 	/*
 	 * To check if we are already connected to a wifi network:
@@ -300,7 +307,9 @@ static inline uint8_t esp_check_connection(char workString[])
 	 * If string contains "STAIP,\"0.0.", pointer off strstr() not NULL,
 	 * the condition will be false, esp has no IP.
 	 */
+	char workString[BUFFER_SIZE_SERIAL_RESULT];
 	uint8_t u8response = ESP_RETURN_NDEF;
+	
 	memset(workString, 0, BUFFER_SIZE_SERIAL_RESULT-1);
 	uint8_t u8index = 0;  // index for buffer, and character counter.
 	uart_flush();
@@ -324,6 +333,23 @@ static inline uint8_t esp_check_connection(char workString[])
 	} else {
 		u8response = ESP_RETURN_NOT_CONNECTED;
 	}
+	
+	char *stationIP_begin = NULL;
+	char *stationIP_end = NULL;
+	stationIP_begin = strstr(workString, "STAIP");
+	stationIP_begin += 7;
+	stationIP_end = strchr(stationIP_begin, 0x22);	// ' " '
+	uart_flush();
+	
+	/*
+	 * It's possible that in the ESP Station changes it's IP due to new network for example
+	 * The string containing the IP should be re-initialized to empty string before storing new IP
+	 * because old IP might have more characters, and characters over the new IP length will remain.
+	 * Example: OLD IP: 192.168.43.145; New IP: 192.168.1.110; Reported(Stored) IP: 192.168.1.1105
+	 */
+	//memset(esp_station_IP,0,BUFFER_SIZE_IP_STRING);  //AleGaa using memset here, produced constant reset???
+	strncpy(esp_station_IP, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
+	memset(workString, 0, BUFFER_SIZE_SERIAL_RESULT-1);
 	return u8response;
 }
 
@@ -332,11 +358,12 @@ void esp_state_machine(void)
 	static uint8_t u8esp_current_state = ESP_STATE_HW_INIT;
 	static uint8_t u8connection_retry_count = 0;
 	uint8_t u8work_int = 0;
+	uint16_t u16work_int = 0xFFFF;
 	char *pc_current_string_pos = NULL;
-	char ac_ip_check_result[BUFFER_SIZE_SERIAL_RESULT];
+	//char ac_ip_check_result[BUFFER_SIZE_SERIAL_RESULT];
 	char ac_work_string[BUFFER_SIZE_GENERIC_WORK_STRING];
-	uint8_t u8connection_ID = 0xFF;
-	char ac_client_IP[BUFFER_SIZE_IP_STRING];
+	static uint8_t u8connection_ID = 0xFF;
+	static char ac_client_IP[BUFFER_SIZE_IP_STRING];
 	memset(ac_client_IP, 0, BUFFER_SIZE_IP_STRING);
 	memset(ac_work_string, 0, BUFFER_SIZE_GENERIC_WORK_STRING);
 	switch(u8esp_current_state)
@@ -358,7 +385,8 @@ void esp_state_machine(void)
 			#if ESP_CONFIG_FORCE_WIFI_SETUP
 				u8esp_current_state = ESP_STATE_START_AP;
 			#else
-			u8work_int = esp_check_connection(ac_ip_check_result);
+			memset(esp_station_IP,0,BUFFER_SIZE_IP_STRING);
+			u8work_int = esp_check_connection(/*ac_ip_check_result*/);
 			if(ESP_RETURN_CONNECTED == u8work_int) {
 				u8esp_current_state = ESP_STATE_START_TCP_SERVER;
 				esp_is_connected = true;
@@ -480,10 +508,13 @@ void esp_state_machine(void)
 					switch (*pc_current_string_pos)
 					{
 						case ESP_CMD_GET_STA_IP:  //E command: get STA IP
-						if(esp_check_connection(ac_ip_check_result))  //esp station has IP
+						memset(esp_station_IP,0,BUFFER_SIZE_IP_STRING);
+						if(esp_check_connection(/*ac_ip_check_result*/))  //esp station has IP
 						{
-							esp_aux_calc_station_ip(ac_ip_check_result);
+							/*esp_aux_calc_station_ip(ac_ip_check_result);*/
 							esp_response(u8connection_ID, ac_client_IP, esp_station_IP);
+						} else {
+							esp_response(u8connection_ID, ac_client_IP, "NO CONN");
 						}
 						break;
 						
@@ -628,6 +659,7 @@ void esp_state_machine(void)
 							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_DEFAULT_POWER);
 							
 							esp_response(u8connection_ID, ac_client_IP, ac_work_string);
+							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 						break;
 						
 						case ESP_CMD_SET_AP_ALWAYS_ON:  //configure AP to be or not to be always on in EEPROM
@@ -659,25 +691,48 @@ void esp_state_machine(void)
 						break;
 						
 						case ESP_CMD_SET_BYTE_EEPROM:  //Generic command to set a byte in EEPROM: #(Addr=2byte)(Data=1Byte)
-							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 							pc_current_string_pos++;
 							u8work_int = (*pc_current_string_pos)-0x30;  //MSB of address converted from ascii to int with -0x30
-							pc_current_string_pos++;  //LSB of address
-							*ac_work_string = *(pc_current_string_pos+1);
-							eeprom_write_byte((u8work_int<<8)|((*pc_current_string_pos)-0x30),(uint8_t)*ac_work_string);
-							esp_response(u8connection_ID, ac_client_IP, "DONE");
-							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+							u16work_int = ((uint16_t)u8work_int) << 8;
+							
+							pc_current_string_pos++;
+							u8work_int = (*pc_current_string_pos)-0x30; //LSB of address
+							u16work_int |= (uint16_t)u8work_int;
+							
+							pc_current_string_pos++;
+							u8work_int = (*pc_current_string_pos); //data to be written
+							
+							if (u16work_int < EEPROM_CONFIG_SIZE) {
+								#if 0
+								uart_send_uhex(u16work_int); uart_send_char('>'); uart_send_uhex(u8work_int); uart_newline();
+								#endif
+								eeprom_write_byte(u16work_int,u8work_int);
+								esp_response(u8connection_ID, ac_client_IP, "DONE");
+							} else {
+								esp_response(u8connection_ID, ac_client_IP, "ADDR ERR");
+							}
+							u16work_int = 0xFFFF;
 						break;
 						
 						case ESP_CMD_GET_BYTE_EEPROM:
-							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 							pc_current_string_pos++;
 							u8work_int = (*pc_current_string_pos)-0x30;  //MSB of address
-							pc_current_string_pos++;  //LSB of address
-							u8work_int = eeprom_read_byte((u8work_int<<8)|((*pc_current_string_pos)-0x30));
-							*(ac_work_string) = u8work_int;
-							esp_response(u8connection_ID, ac_client_IP, ac_work_string);
-							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+							u16work_int = ((uint16_t)u8work_int) << 8;
+							
+							pc_current_string_pos++;
+							u8work_int = (*pc_current_string_pos)-0x30; //LSB of address
+							u16work_int |= (uint16_t)u8work_int;							
+							
+							if (u16work_int < EEPROM_CONFIG_SIZE) {
+								#if 0
+								uart_send_uhex(u16work_int); uart_newline();
+								#endif
+								u8work_int = eeprom_read_byte(u16work_int);
+								esp_response(u8connection_ID, ac_client_IP, (char *)&u8work_int);
+							} else {
+								esp_response(u8connection_ID, ac_client_IP, "ADDR ERR");
+							}
+							u16work_int = 0xFFFF;
 						break;						
 
 						case ESP_CMD_RESET_EEPROM:
@@ -752,15 +807,16 @@ void esp_state_machine(void)
 					u8work_int = ESP_RETURN_CONNECT_FAILED;
 				}
 			} while ((u8work_int != ESP_RETURN_CONNECT_SUCCESS) && (u8work_int != ESP_RETURN_CONNECT_FAILED));
-			
+			memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
 			// if esp succeeded in connecting to ssid and pass provided
 			if(ESP_RETURN_CONNECT_SUCCESS == u8work_int)
 			{
 				timer_delay_ms(1000);
-				u8work_int = esp_check_connection(ac_ip_check_result);
+				memset(esp_station_IP,0,BUFFER_SIZE_IP_STRING);
+				u8work_int = esp_check_connection(/*ac_ip_check_result*/);
 				if(ESP_RETURN_CONNECTED == u8work_int)  //esp station has IP
 				{
-					esp_aux_calc_station_ip(ac_ip_check_result);
+					/*esp_aux_calc_station_ip(ac_ip_check_result);*/
 					esp_response(u8connection_ID, ac_client_IP, esp_station_IP);
 					timer_delay_ms(2000);
 					esp_is_connected = true;

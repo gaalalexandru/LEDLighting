@@ -24,7 +24,6 @@
 #else
 #error "Please specify one target controller"
 #endif  //controller selection
-
 /************************************************************************/
 /*					         CONTROL METHODE SELECTION					*/
 /************************************************************************/
@@ -107,7 +106,7 @@
  */
 #define ESP_CONFIG_INIT_DELAY				(10000) //value is ms
 #define ESP_CONFIG_TCP_PORT					"1001"
-#define ESP_CONFIG_TCP_TIMEOUT				"60"  //seconds before tcp connection is closed
+#define ESP_CONFIG_TCP_TIMEOUT				"120"  //seconds before tcp connection is closed
 #define ESP_CONFIG_FORCE_WIFI_SETUP			(0)
 #define ESP_CONFIG_CONNECTION_MAX_RETRY		(3)
 #define ESP_CONFIG_CHECK_AP_OLD_STATE		(0)
@@ -166,4 +165,5 @@
 #define EEPROM_MAX_ID		(0x5A)
 
 #define EEPROM_CONFIG_CLEAR_CREDENTIALS_STORAGE	(0)
+#define EEPROM_CONFIG_SIZE (0x200)  //512 byte
 #endif /* CONFIGURATION_H_ */

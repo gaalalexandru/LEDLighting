@@ -23,7 +23,7 @@
  * ERR_S51	| State: ESP_STATE_JOIN_NEW_NETWORK, Branch: ESP_RETURN_CONNECT_SUCCESS, Undefined IP status
  * ERR_S52	| State: ESP_STATE_JOIN_NEW_NETWORK, Branch: ESP_RETURN_CONNECT_SUCCESS, Failed AP Setting
  * ERR_S55	| State: ESP_STATE_JOIN_NEW_NETWORK, Undefined Connection Status
- * ERR_A01	| AP Control: Undefined mode requested	
+ * ERR_A01	| AP Control: Undefined mode requested
  * ERR_A02	| AP Control: Failed AP setting
  * ERR_E01	| EEPROM: Not enough space for WiFi credentials (@save)
  * ERR_E02	| EEPROM: Not enough space for WiFi credentials (@load)

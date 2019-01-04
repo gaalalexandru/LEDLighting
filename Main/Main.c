@@ -53,15 +53,15 @@ int main(void)
     while(1)
     {
 		#if PWM_TERMINAL_CONTROL
-		manual_control();
+			manual_control();
+		#else
+			#if LIGHTING_WIFI_CONTROL
+				#if ESP_TERMINAL_CONTROL
+					//do nothing with ESP
+				#else
+					esp_state_machine();
+				#endif //ESP_TERMINAL_CONTROL
+			#endif //LIGHTING_WIFI_CONTROL		
 		#endif  //PWM_TERMINAL_CONTROL
-		
-		#if LIGHTING_WIFI_CONTROL
-			#if ESP_TERMINAL_CONTROL
-			//do nothing with ESP	
-			#else
-			esp_state_machine();
-			#endif //ESP_TERMINAL_CONTROL
-		#endif //LIGHTING_WIFI_CONTROL
     }
 }
