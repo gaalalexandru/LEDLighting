@@ -818,7 +818,7 @@ void esp_state_machine(void)
 				{
 					/*esp_aux_calc_station_ip(ac_ip_check_result);*/
 					esp_response(u8connection_ID, ac_client_IP, esp_station_IP);
-					timer_delay_ms(2000);
+					timer_delay_ms(3000);
 					esp_is_connected = true;
 					status_led_mode = connected_to_ap;
 					//now it's possible to turn AP off if this is the setting in eeprom
