@@ -170,6 +170,12 @@
     <Compile Include="pwm_handler.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="reset_handler.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="reset_handler.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="status_led.c">
       <SubType>compile</SubType>
     </Compile>
