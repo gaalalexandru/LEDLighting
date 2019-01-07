@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include "esp_wifi_handler.h"
+#include "esp_wifi_handler_defs.h"
 #include "configuration.h"
 #include "uart_handler.h"
 #include "timer_handler.h"
@@ -18,6 +19,7 @@
 #include "animation_handler.h"
 #include "pwm_handler.h"
 #include "eeprom_handler.h"
+#include "errors.h"
 
 // Pins have to be digital output
 // CH_PD: Chip enable. Keep it on high (3.3V) for normal operation
@@ -27,69 +29,24 @@
 #define RST_ESP_SET(x)	((x) ? (ESP_RST_PORT |= (1 << ESP_RST_PIN)) : (ESP_RST_PORT &= ~(1 << ESP_RST_PIN)))
 #define	CH_PD_SET(x)	((x) ? (ESP_ENABLE_PORT |= (1 << ESP_ENABLE_PIN)) : (ESP_ENABLE_PORT &= ~(1 << ESP_ENABLE_PIN)))
 
-/*#define ESP_DEBUG (0)*/
-#define SERIAL_RESULT_BUFFER_SIZE 101
-
-//Preliminary ESP access point states
-#define ESP_AP_INIT				0
-#define ESP_AP_SETMUX			1
-#define ESP_AP_START_TCP_SERVER	2
-#define ESP_AP_CONFIG_RECEIVE	3
-#define ESP_AP_CONFIG_CHECK		4
-#define ESP_AP_CONFIG_SUCCESS	5
-
-//Preliminary ESP station states
-#define ESP_STA_INIT				0
-#define ESP_STA_SETMODE				1
-#define ESP_STA_CONNECT				2
-#define ESP_STA_CHECK_IP			3
-#define ESP_STA_CHECK_STATUS		4
-#define ESP_STA_SETMUX				5
-#define ESP_STA_START_TCP_SERVER	6
-#define ESP_STA_CHECK_CONNECTION	7	//if changes occur, update timer_handler.c also
-#define ESP_STA_WAIT_COMMANDS		8
-
-#define ESP_FORCE_WIFI_SETUP (0)
-
-#define ESP_AP_OFF	(0)
-#define ESP_AP_ON	(1)
-
-#define true  1
-#define false 0
-
 /* To define the maximum waiting time for a response*/
 #define SET_RESPONSE_TIMEOUT(x)	(response_max_timestamp =  (timer_ms() + ((x) * 1000)))
-
 /* Will return true if timeout expired*/
 #define WAITING_RESPONSE()	(response_max_timestamp > timer_ms())
 
 /************************************************************************/
 /*                           Global variables                           */
 /************************************************************************/
-volatile uint8_t bEspIsConnected = false;	// ESP has ip or not
-volatile uint8_t bEspIsInit = false;	// ESP is fully init or not
-
-char serialResult[SERIAL_RESULT_BUFFER_SIZE];
-char clientIPString[15];
-char stationIPString[15];
-
-// store received ssid and pass to be used when connection is lost
-// esp will then try to reconnect to these credentials
-// rather than using macros
-char wifiCredentials[32];
-
+volatile uint8_t esp_is_connected = false;	// ESP has ip or not
+char esp_wifi_credentials[BUFFER_SIZE_WIFI_CREDENTIALS_STRING];
+char esp_serial_result[BUFFER_SIZE_SERIAL_RESULT];
+char esp_station_IP[BUFFER_SIZE_IP_STRING];
 // most often ID is 0 but we can have up to 4 active connections
 // so we want to reply to the right sender who sent ssid and pass
-uint8_t senderID = 0;
-	
-volatile uint8_t esp_sta_current_state = 0;
-volatile uint8_t esp_ap_current_state = 0;
-
-//char esp_wifi_ssid[ESP_SSID_MAX_LENGTH];
-//char esp_wifi_pass[ESP_PASS_MAX_LENGTH];
-
+//volatile uint8_t esp_connection_ID = 0;  //not used anymore, replaced by local in esp_state_machine, leave for feature reference
+//char esp_client_IP[BUFFER_SIZE_IP_STRING];  //not used anymore, replaced by local in esp_state_machine, leave for feature reference
 volatile uint32_t response_max_timestamp;
-extern volatile uint8_t pwm_width_buffer[PWM_CHMAX];
+extern volatile uint8_t pwm_width_buffer[PWM_CONFIG_CHMAX];
 extern volatile status_led_mode_t status_led_mode;
 
 /************************************************************************/
@@ -98,17 +55,17 @@ extern volatile status_led_mode_t status_led_mode;
 
 uint8_t receive_serial()
 {
-	memset(serialResult, 0, SERIAL_RESULT_BUFFER_SIZE-1);
+	memset(esp_serial_result, 0, BUFFER_SIZE_SERIAL_RESULT-1);
 	SET_RESPONSE_TIMEOUT(4);
 	
 	while(uart_rx_buflen() == 0 && WAITING_RESPONSE()) { /*wait*/ }
 	if(uart_rx_buflen() > 0)
 	{
-		uart_get_string(serialResult, SERIAL_RESULT_BUFFER_SIZE-1);
-		if(strlen(serialResult))
+		uart_get_string(esp_serial_result, BUFFER_SIZE_SERIAL_RESULT-1);
+		if(strlen(esp_serial_result))
 		{ //sometime it return empty string :/
 
-			if(strstr(serialResult, "busy p..") != NULL)
+			if(strstr(esp_serial_result, "busy p..") != NULL)
 			{
 				timer_delay_ms(500);
 				return receive_serial();  //Try again
@@ -128,7 +85,7 @@ static uint8_t check_return(char *compareWord)
 {
 	if(receive_serial())
 	{
-		if(strstr(serialResult, compareWord) != NULL)
+		if(strstr(esp_serial_result, compareWord) != NULL)
 		{
 			return true;
 		}
@@ -163,6 +120,9 @@ static uint8_t send_command(char *sentCommand, char *compareWord)
 	}	
 	return check_until_timeout(compareWord, 1);
 }
+/************************************************************************/
+/*                     ESP / WiFi handling functions                    */
+/************************************************************************/
 
 //helper function that extracts station IP
 //extracted data is stored in global variables
@@ -174,42 +134,46 @@ inline static void esp_aux_calc_station_ip(char *workString)
 	stationIP_begin += 7;
 	stationIP_end = strchr(stationIP_begin, 0x22);	// ' " '
 	uart_flush();
-	strncpy(stationIPString, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
+	/*
+	 * It's possible that in the ESP Station changes it's IP due to new network for example
+	 * The string containing the IP should be re-initialized to empty string before storing new IP
+	 * because old IP might have more characters, and characters over the new IP length will remain.
+	 * Example: OLD IP: 192.168.43.145; New IP: 192.168.1.110; Reported(Stored) IP: 192.168.1.1105
+	 */
+	memset(esp_station_IP,0,BUFFER_SIZE_IP_STRING);
+	strncpy(esp_station_IP, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
 }
 
-//helper function that extracts client ID and IP
-//extracted data is stored in global variables
-inline static void esp_aux_client_data(char *workString)
+//helper function that extracts connection ID and client IP
+inline static void esp_aux_client_data(char *workString, uint8_t *connection_ID, char *client_IP)
 {
 	char *clientIP_begin = NULL;
 	char *clientIP_end = NULL;
-	senderID = atoi(workString);	// store ID of sender
+	
+	*connection_ID = atoi(workString);	// store ID of sender
 	workString += 2;  //jump to "," before message length
 	clientIP_begin = strchr(workString, 0x2c);	//jump to next ','
 	clientIP_begin++;  //jump to start of IP
 	clientIP_end = strchr(clientIP_begin, 0x2c);	//jump to next ','
-	strncpy(clientIPString, clientIP_begin, (uint8_t)(clientIP_end-clientIP_begin));
+	strncpy(client_IP, clientIP_begin, (uint8_t)(clientIP_end-clientIP_begin));
+	
+	#if 0  //activate to check connection ID and client IP in terminal
+	uart_send_udec(*connection_ID);
+	uart_send_char('>');
+	uart_send_string(client_IP);
+	uart_newline();
+	#endif
 }
 
-// Creates TCP server and sends data
 // ID is the connection number
 // destination is the IP to which data is sent
-// message is what is sent
 static void esp_response(uint8_t ID, char *destination, char *message)
 {
-	//AleGaa The next block is deactivated because we will use persistent TCP connection when communicating with ESP AP
-	//Note: Rarely strange behavior was observed, sometimes when joining the router wifi network, the connection is closed
+	//AleGaa The next block is deactivated because we will use persistent TCP connection
+	//Note: Rarely strange behavior was observed, sometimes when joining the router wifi network, the connection is closed too earlyy
 	#if 0  
-	uart_send_string("AT+CIPSTART=");
-	uart_send_udec(ID);
-	uart_send_string(",\"TCP\"");
-	uart_send_char(0x2c);	// ,
-	uart_send_char(0x22);	// "
-	uart_send_string(destination);
-	uart_send_char(0x22);	// "
-	uart_send_char(0x2c);	// ,
-	uart_send_string(ESP_CFG_DEV_PORT);
-	uart_newline();
+	uart_send_string("AT+CIPSTART="); uart_send_udec(ID); uart_send_string(",\"TCP\""); uart_send_char(0x2c); uart_send_char(0x22); 
+	uart_send_string(destination); uart_send_char(0x22); uart_send_char(0x2c); uart_send_string(ESP_CONFIG_TCP_PORT); uart_newline();
 	#endif
 	
 	#if 0 //Wait for TCP server success signal before sending data to client
@@ -219,68 +183,140 @@ static void esp_response(uint8_t ID, char *destination, char *message)
 	{
 		uart_get_string(workString, 32);	// at this point, workString contains response from AT+CIPSTART
 	} while ((strstr(workString, "OK") == NULL) && (strstr(workString, "ALREADY") == NULL));
-	#else
+	#else //because waiting for OK produced undesired behavior, just wait 2sec.
 	timer_delay_ms(2000);
 	#endif
-	
+	//Send the command and the message length
 	uart_send_string("AT+CIPSEND=");
 	uart_send_udec(ID);
 	uart_send_char(0x2c);	// ,
 	uart_send_udec(strlen(message));
 	uart_newline();
-	
+	//Send the actual message
 	timer_delay_ms(200);
 	uart_send_string(message);
 	uart_newline();
 }
 
-/************************************************************************/
-/*                        Wifi handling functions                       */
-/************************************************************************/
-
-
-void esp_init(void)
+static inline uint8_t esp_ap_control(uint8_t u8ap_new_state)
 {
-	//Set the direction and value of ESP 8266 Reset (RST) and Enable (CH_PD) pin
-	RST_ESP_DIR;
-	CH_PD_DIR;
+	uint8_t u8response = 0;
+	if(u8ap_new_state == ESP_SYM_AP_OFF)
+	{
+		u8response = send_command("AT+CWMODE=1", "OK");
+		timer_delay_ms(50);
+	}
+	else if((u8ap_new_state == ESP_SYM_AP_ON))
+	{
+		u8response = send_command("AT+CWMODE=3", "OK");
+		timer_delay_ms(50);
+	}
+	else
+	{
+		uart_send_string(ERROR_ESP_AP_CONTROL_UndefinedAPModeRequested);
+	}
+	if(u8response)
+	{
+		u8response = ((u8ap_new_state == ESP_SYM_AP_ON)? ESP_RETURN_AP_ON: \
+					 (u8ap_new_state == ESP_SYM_AP_OFF)? ESP_RETURN_AP_OFF: ESP_RETURN_ERROR);
+	}
+	else
+	{
+		u8response = ESP_RETURN_ERROR;
+		uart_send_string(ERROR_ESP_AP_CONTROL_FailedAPSetting);
+	}
+	return u8response;
+}
+
+uint8_t esp_init_hw(uint16_t u16init_delay)
+{	
+	uint8_t u8response = ESP_RETURN_NDEF;
+	uint8_t u8work_int = 0;
+	static uint8_t u8first_start = 1;
+	/* HW init procedure:
+	 * Only on first startup: set the direction of ESP 8266 Reset (RST) and Enable (CH_PD) pin
+	 * Only on first startup: set value of Enable (CH_PD) pin
+	 * On every restart set - clear - set Reset (RST) pin
+	 */
+	if(u8first_start)
+	{
+		RST_ESP_DIR;
+		CH_PD_DIR;
+		CH_PD_SET(1);
+		u8first_start = 0;
+	}
+	
 	RST_ESP_SET(1);
 	RST_ESP_SET(0);
 	RST_ESP_SET(1);
-	CH_PD_SET(1);
-	timer_delay_ms(10000);  //Wait 6 second until ESP is started and finishes standard junk output :)
-	//Set ESP8266 mode (1 = Station, 2 = Soft Access Point, 3 = Sta + SoftAP)
-	//AleGaa: Since CWMODE is set in flash memory of ESP, might be useful
-	//to set the mode only at "manufacturing" via serial terminal
-	//and do not set it on runtime.
-	//this could make the initialization slightly simpler and faster
-	//feature to be implemented TODO
-	bEspIsInit = false;
-	strcpy(wifiCredentials, WIFI_SSID_PASSWORD);
-	while(!send_command("AT+CWMODE=3", "OK")) {};  //setup AccessPoint and STAtion mode
+	
+	//timer_delay_ms(100);
+	//startup animation has to be called after the ESP reset and enable pins are set
+	//otherwise ESP might not start up
+	animation_play_startup();
+	
+	timer_delay_ms(u16init_delay);  //Wait u8init_delay millisecond until ESP is started and finishes standard junk output :)
+	//syncronize ESP8266 with ATMEGA8 and set ESP to accept multiple connections
+	if(send_command("AT", "OK"))
+	{
+		u8response = ESP_RETURN_OK;
+		} else {
+		u8response = ESP_RETURN_ERROR;
+		uart_send_string(ERROR_ESP_STATE_HW_INIT_FailedSync);
+	}
+	if(send_command("AT+CIPMUX=1", "OK"))
+	{
+		u8response &= ESP_RETURN_OK;
+		} else {
+		u8response &= ESP_RETURN_ERROR;
+		uart_send_string(ERROR_ESP_STATE_HW_INIT_FailedSetCipmux);
+	}
+	if(eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == ESP_SYM_AP_ALWAYS_ON)
+	{
+		u8work_int = esp_ap_control(ESP_SYM_AP_ON);
+		if(ESP_RETURN_AP_ON == u8work_int) {
+			u8response &= ESP_RETURN_OK;
+		} else {
+			u8response &= ESP_RETURN_ERROR;
+		}
+	} 
+	else if (eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == ESP_SYM_AP_NOT_ALWAYS_ON)
+	{
+		u8work_int = esp_ap_control(ESP_SYM_AP_OFF);
+		if (ESP_RETURN_AP_OFF == u8work_int) {
+			u8response &= ESP_RETURN_OK;
+		} else { 
+			u8response &= ESP_RETURN_ERROR;
+		}
+	} else {
+		uart_send_string(ERROR_ESP_STATE_HW_INIT_UndefinedAPConfigStored);
+	}
+	return u8response;
 }
 
 // fills parameter with the response for AT+CIFSR command
-// and also returns true/false if station has/hasn't got an IP
-static inline uint8_t esp_check_connection(char workString[])
+// and also returns ESP_RETURN_CONNECTED / ESP_RETURN_NOT_CONNECTED if station has/hasn't got an IP
+static inline uint8_t esp_check_connection(/*char workString[]*/)
 {
-	
 	/*
-	To check if we are already connected to a wifi network:
-	Send command to ESP "AT+CIFSR"
-	Check if response string contains station IP nr. 0.0.0.0.
-	If string doesn't contain "STAIP,\"0.0.", pointer of strstr().
-	will be NULL and the condition will be true, esp has IP.
-	If string contains "STAIP,\"0.0.", pointer off strstr() not NULL,
-	the condition will be false, esp has no IP.
-	*/
-	memset(workString, 0, SERIAL_RESULT_BUFFER_SIZE-1);
-	uint8_t u8index = 0;  // index for buffer, and character counter.
+	 * To check if we are already connected to a wifi network:
+	 * Send command to ESP "AT+CIFSR"
+	 * Check if response string contains station IP nr. 0.0.0.0.
+	 * If string doesn't contain "STAIP,\"0.0.", pointer of strstr().
+	 * will be NULL and the condition will be true, esp has IP.
+	 * If string contains "STAIP,\"0.0.", pointer off strstr() not NULL,
+	 * the condition will be false, esp has no IP.
+	 */
+	char workString[BUFFER_SIZE_SERIAL_RESULT];
+	uint8_t u8response = ESP_RETURN_NDEF;
 	
+	memset(workString, 0, BUFFER_SIZE_SERIAL_RESULT-1);
+	uint8_t u8index = 0;  // index for buffer, and character counter.
 	uart_flush();
+	//since the response from AT+CIFS is on many lines
+	//can vary and be very long we will not use the send command function
 	uart_send_string("AT+CIFSR\r\n");
 	timer_delay_ms(200);
-	
 	do
 	{
 		workString[u8index] = uart_get_char();
@@ -290,607 +326,563 @@ static inline uint8_t esp_check_connection(char workString[])
 		}
 	}
 	while (strstr(workString,"STAMAC") == NULL);
+	uart_flush();
+	if(strstr(workString, "STAIP,\"0.0.") == NULL)
+	{
+		u8response = ESP_RETURN_CONNECTED;
+	} else {
+		u8response = ESP_RETURN_NOT_CONNECTED;
+	}
 	
+	char *stationIP_begin = NULL;
+	char *stationIP_end = NULL;
+	stationIP_begin = strstr(workString, "STAIP");
+	stationIP_begin += 7;
+	stationIP_end = strchr(stationIP_begin, 0x22);	// ' " '
 	uart_flush();
 	
-	if(strstr(workString, "STAIP,\"0.0.") == NULL)
-	//if return string doesn't contain 0.0. esp has IP
-	{
-		return true;  
-	}
-	return false;
-}
-
-
-
-static inline void esp_ap_control(uint8_t ap_new_state)
-{
-	static uint8_t ap_old_state = ESP_AP_ON;
-	if((ap_new_state == ESP_AP_OFF) && (ap_old_state != ESP_AP_OFF))
-	{
-		if(send_command("AT+CWMODE=1", "OK"))
-		{
-			ap_old_state = ap_new_state;
-		}
-	}
-	else if((ap_new_state == ESP_AP_ON) && (ap_old_state != ESP_AP_ON))
-	{
-		if(send_command("AT+CWMODE=3", "OK"))
-		{
-			ap_old_state = ap_new_state;
-		}
-	}
-	else
-	{
-		//do nothing
-	}
-}
-
-void esp_check_current_setup(void)
-{
-#if ESP_FORCE_WIFI_SETUP  //for development of wifi setup functionalities
-	esp_wifi_setup();
-#else //normal run
-	/* 
-	Call "esp_check_connection()" function, if the return result is
-	TRUE: In this case we can proceed to MUX setting and TCP server start.
-	FALSE: will start the routines for new wifi network setup.
-	*/
-	char ipCheckResult[SERIAL_RESULT_BUFFER_SIZE];
-	if(esp_check_connection(ipCheckResult))  //esp station has IP
-	{
-		//Start ESP State Machine
-		//Go directly to MUX setting
-		bEspIsConnected = true;
-		esp_sta_current_state = ESP_STA_SETMUX;
-	}
-	else  //esp station has no IP
-	{
-		//Start ESP Access Point and get wifi configuration from mobile device
-		esp_wifi_setup();
-	}
-#endif //ESP_FORCE_WIFI_SETUP	
-}
-
-// this function will turn on and setup the ESP Access Point
-// mobile device will connect to this network
-// mobile device will send the SSID and password of home network
-// ESP will send to mobile device the IP of ESP on home network
-void esp_wifi_setup(void)
-{
-	char ipCheckResult[SERIAL_RESULT_BUFFER_SIZE];
-	//memset(ipCheckResult, 0, SERIAL_RESULT_BUFFER_SIZE-1);
-	
-	char workString[32];
-	uint8_t CWJAP_OK = 0;
-	uint8_t CWJAP_FAIL = 0;
-	char *currStrPos = NULL;
-	
-	esp_ap_control(ESP_AP_ON);	
-	
-	esp_ap_current_state = ESP_AP_INIT;
-	bEspIsInit = false;
-	bEspIsConnected = false;
-	memset(workString, 0, 32);
-	memset(clientIPString, 0, 15);
-	memset(stationIPString, 0, 15);
-	
-	while(esp_ap_current_state < ESP_AP_CONFIG_SUCCESS)
-	{
-		switch (esp_ap_current_state)
-		{
-			case ESP_AP_INIT:
-				//Synchronize ATMEGA8 with ESP8266
-				if(send_command("AT", "OK"))
-				{
-					//esp_sta_current_state = ESP_AP_SETMODE;
-					//AleGaa: skip setmode command for now.
-					esp_ap_current_state = ESP_AP_SETMUX;
-				}
-				uart_flush();
-			break;
-			case ESP_AP_SETMUX:
-				//Set ESP to accept multiple connections
-				if(send_command("AT+CIPMUX=1", "OK"))
-				{
-					//why was this here? todo: uart_send_string(serialResult);
-					esp_ap_current_state = ESP_AP_START_TCP_SERVER;
-				}
-				uart_flush();
-			break;			
-			case ESP_AP_START_TCP_SERVER:
-				send_command("AT+CIPSERVER=0", "OK");
-				//Start TCP server on a manually selected port
-				//if(send_command("AT+CIPSERVER=1,1002", "OK"))
-				#if 1
-				uart_send_string("AT+CIPSERVER=1,");
-				uart_send_string(ESP_AP_PORT);
-				uart_newline();
-				timer_delay_ms(100);
-				send_command("AT+CIPSTO=60", "OK");	
-				send_command("AT+CIPDINFO=1", "OK");
-				esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
-				#endif
-				
-				#if 0
-				if(send_command(strcat("AT+CIPSERVER=1,", ESP_AP_PORT), "OK"))
-				{
-					send_command("AT+CIPDINFO=1", "OK");	// detailed information (IP & PORT) in +IPD
-					send_command("AT+CIPSTO=60", "OK");		// time until tcp server connection is closed
-					esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
-				}
-				#endif
-				uart_flush();
-			break;
-			case ESP_AP_CONFIG_RECEIVE:
-				/*
-				1. mobile device -> ESP: #\"SSID\",\"PASSWORD"\
-				2a. CURRENT VERSION: ATMEGA store to 1 big string the SSID, PASSWORD in the req format
-				2b. FEATURE VERSION (TO DO): ATMEGA store to separate string the SSID, PASSWORD, PORT
-				3. ESP connect to SSID with PASSWORD (enable station mode)
-				4. ESP check IP, if OK go to 5, if not OK, go to 1.
-				5. ESP -> mobile device: #stationIP
-				*/
-				
-				CWJAP_OK = 0;
-				CWJAP_FAIL = 0;
-
-				if(check_until_timeout("+IPD,", 5))
-				{
-					//response example:
-					//+IPD,0,25,192.168.4.2,50511:#"FELINVEST","1234qwe$"
-					currStrPos = strstr(serialResult, "+IPD,");  //find start of response
-					currStrPos += 5;	// jump to ID of sender
-					esp_aux_client_data(currStrPos);				
-					currStrPos = strchr(currStrPos, '#');  //find start of SSID
-					currStrPos++;
-					strcpy(workString, currStrPos);		// at this point, workString contains SSID and PASS
-					strcpy(wifiCredentials, currStrPos);
-					esp_ap_current_state = ESP_AP_CONFIG_CHECK;
-				}
-				uart_flush();
-			break;
-			
-			case ESP_AP_CONFIG_CHECK:
-				//connect to new SSID
-				uart_flush();
-				bEspIsConnected = false;
-				timer_delay_ms(1000);
-				uart_send_string("AT+CWJAP=");	// at this point, workString contains SSID and PASS
-				uart_send_string(workString);
-				uart_newline();
-				timer_delay_ms(1000);
-				
-				do
-				{
-					uart_get_string(workString, 32);	// at this point, workString contains response from AT+CWJAP
-					if(strstr(workString, "OK") != NULL)
-					{
-						CWJAP_OK = 1;
-					}
-					else if(strstr(workString, "FAIL") != NULL)
-					{
-						CWJAP_FAIL = 1;
-					}				
-				} while ((CWJAP_OK == 0) && (CWJAP_FAIL == 0));
-				
-				// if esp succeeded in connecting to ssid and pass provided
-				if(CWJAP_OK == 1)
-				{
-					timer_delay_ms(1000);
-					if(esp_check_connection(ipCheckResult))  //esp station has IP
-					{
-						esp_aux_calc_station_ip(ipCheckResult);
-						esp_response(senderID, clientIPString, stationIPString);
-						timer_delay_ms(2000);
-						
-						//bEspIsConnected = true;
-						esp_ap_current_state = ESP_AP_CONFIG_SUCCESS;
-					}
-				}
-				
-				// if esp failed in connecting to ssid and pass provided, go back to receive ssid and pass state
-				else if(CWJAP_FAIL == 1)
-				{
-					esp_response(senderID, clientIPString, "Could not connect");
-					bEspIsConnected = false;
-					timer_delay_ms(2000);
-					esp_ap_current_state = ESP_AP_CONFIG_RECEIVE;
-				}
-				
-			uart_flush();
-			break;
-		}
-	}
-	
-	if (esp_ap_current_state == ESP_AP_CONFIG_SUCCESS)
-	{
-		if(eeprom_read_byte(EEL_AP_ALWAYS_ON) == AP_NOT_ALWAYS_ON)
-		{
-			esp_ap_control(ESP_AP_OFF);
-		}
-		esp_sta_current_state = ESP_STA_START_TCP_SERVER;
-	}
+	/*
+	 * It's possible that in the ESP Station changes it's IP due to new network for example
+	 * The string containing the IP should be re-initialized to empty string before storing new IP
+	 * because old IP might have more characters, and characters over the new IP length will remain.
+	 * Example: OLD IP: 192.168.43.145; New IP: 192.168.1.110; Reported(Stored) IP: 192.168.1.1105
+	 */
+	//memset(esp_station_IP,0,BUFFER_SIZE_IP_STRING);  //AleGaa using memset here, produced constant reset???
+	strncpy(esp_station_IP, stationIP_begin, (uint8_t)(stationIP_end-stationIP_begin));
+	memset(workString, 0, BUFFER_SIZE_SERIAL_RESULT-1);
+	return u8response;
 }
 
 void esp_state_machine(void)
 {
-	char ipCheckResult[SERIAL_RESULT_BUFFER_SIZE];
-	char workString[32];
-	static uint8_t retry_connect = 0;
-	static uint8_t noconnection_count = 0;
-	char *currStrPos, *dataPtr;	
-	uint8_t CWJAP_OK = 0;
-	uint8_t CWJAP_FAIL = 0;
-	uint8_t u8work_int = 0;  //uint8 for general use
-	
-	memset(workString, 0, 32);
-	
-	while(esp_sta_current_state < ESP_STA_WAIT_COMMANDS) 
+	static uint8_t u8esp_current_state = ESP_STATE_HW_INIT;
+	static uint8_t u8connection_retry_count = 0;
+	uint8_t u8work_int = 0;
+	uint16_t u16work_int = 0xFFFF;
+	char *pc_current_string_pos = NULL;
+	//char ac_ip_check_result[BUFFER_SIZE_SERIAL_RESULT];
+	char ac_work_string[BUFFER_SIZE_GENERIC_WORK_STRING];
+	static uint8_t u8connection_ID = 0xFF;
+	static char ac_client_IP[BUFFER_SIZE_IP_STRING];
+	memset(ac_client_IP, 0, BUFFER_SIZE_IP_STRING);
+	memset(ac_work_string, 0, BUFFER_SIZE_GENERIC_WORK_STRING);
+	switch(u8esp_current_state)
 	{
-		switch (esp_sta_current_state)
-		{
-			case ESP_STA_INIT:
-				//Synchronize ATMEGA8 with ESP8266
-				if(send_command("AT", "OK"))
-				{
-					esp_sta_current_state = ESP_STA_CONNECT/*ESP_STA_SETMODE*/;
-					status_led_mode = wait_for_ip;
-				}
-				uart_flush();	
-			break;
+		case ESP_STATE_HW_INIT:
 
-			case ESP_STA_CONNECT:
-				//Set Access Point SSID and Password
-				//send_command not used, because it's necessary to wait a little longer
-				//before checking for OK response
-				CWJAP_OK = 0;
-				CWJAP_FAIL = 0;
-				
-				uart_flush();
-				uart_send_string("AT+CWJAP=");
-				uart_send_string(wifiCredentials);
-				uart_newline();
-				timer_delay_ms(1000);
-				
-				#if 0
-				do
-				{
-					uart_get_string(workString, 32);	// at this point, workString contains response from AT+CWJAP
-					if(strstr(workString, "OK") != NULL)
-					{
-						CWJAP_OK = 1;
-					}
-					else if(strstr(workString, "FAIL") != NULL)
-					{
-						CWJAP_FAIL = 1;
-					}
-				} while ((CWJAP_OK == 0) && (CWJAP_FAIL == 0));
-				
-				if(CWJAP_OK == 1)
-				{
-					noconnection_count = 0;
-					esp_sta_current_state = ESP_STA_SETMUX;
-				}
-				else if(CWJAP_FAIL == 1)
-				{
-					noconnection_count++;
-					if(noconnection_count == WIFI_CHECKCONNECTION_ATTEMPTS)
-					{
-						uart_flush();
-						timer_delay_ms(100);
-						esp_wifi_setup();
-					}
-				}
-				#endif
-				
-				if(esp_check_connection(ipCheckResult))
-				{
-					noconnection_count = 0;
-					esp_sta_current_state = ESP_STA_SETMUX;
-				}
-				else
-				{
-					noconnection_count++;
-					if(noconnection_count == WIFI_CHECKCONNECTION_ATTEMPTS)
-					{
-						uart_flush();
-						timer_delay_ms(100);
-						esp_wifi_setup();
-					}
-				}
-				
-				uart_flush();
-			break;		
 			
-			#if 0
-			case ESP_STA_CHECK_IP:		
-				//Check if ESP received IP from AP
-				if(esp_check_connection(ipCheckResult))  //esp station has IP
-				{
-					//IP received, meaning successful connection to router
-					esp_sta_current_state = ESP_STA_SETMUX;
-				}
-				else
-				{
-					//This will be true if no IP received from router
-					esp_sta_current_state = ESP_STA_CONNECT;  //Reset state to connect
-					retry_connect++;
-					if(retry_connect > 5)
-					{
-						status_led_mode = error_indication;
-						//AleGaa: In case of unsuccessful connection to AP
-						//reset the system or raise a visual warning
-						//feature to be implemented TODO
-					}					
-				}
-				uart_flush();
-			break;
-			#endif
-			
-			case ESP_STA_SETMUX:
-				//Set ESP to accept multiple connections
-				if(send_command("AT+CIPMUX=1", "OK"))
-				{
-					esp_sta_current_state = ESP_STA_START_TCP_SERVER;
-				}
-				uart_flush();
-			break;
-			
-			case ESP_STA_START_TCP_SERVER:
-				//Close previously created server; replies "no change" if none was created before
-				send_command("AT+CIPSERVER=0", "OK");
-				timer_delay_ms(100);
-				//Start STA TCP server on selected port
-				if(send_command("AT+CIPSERVER=1,1001", "OK"))
-				{
-					esp_sta_current_state = ESP_STA_WAIT_COMMANDS;
-					if(bEspIsConnected == false)
-					{
-						#if STARTUP_ANIMATION_FUNCTION
-						animation_init();
-						#endif //STARTUP_ANIMATION_FUNCTION
-					}
-					bEspIsConnected = true;
-					bEspIsInit = true;
-				}
-				uart_flush();
-			break;
-			
-			case ESP_STA_CHECK_CONNECTION:
-				if(esp_check_connection(ipCheckResult))  //esp station has IP
-				{
-					// if it was disconnected before, restart animation
-					if(bEspIsConnected == false)
-					{
-						#if STARTUP_ANIMATION_FUNCTION
-						animation_init();
-						#endif //STARTUP_ANIMATION_FUNCTION
-					}
-					
-					bEspIsConnected = true;
-					bEspIsInit = true;
-					noconnection_count = 0;
-					
-					esp_sta_current_state = ESP_STA_WAIT_COMMANDS;
-				}
-				else
-				{
-					bEspIsInit = false;
-					esp_sta_current_state = ESP_STA_INIT;
-					//Turn AP back on if necessary
-				}
-				uart_flush();
-			break;
-		}  //end of switch (esp_sta_current_state)
-	}  //end of while( esp_sta_current_state < ESP_STATE_WAIT_COMMANDS)
-
-	
-	//Command format sent through TCP:
-	//"+IPD,x,y:$H#DD"
-	//x = connection number
-	//y = number of characters in message, after ":"
-	//$ = start of channel number character(s)
-	//H = HEX value of PWM channel number to be changed
-	//# = start of PWM duty cycle value character(s)
-	//DD = HEX value of PWM duty cycle for selected channel
-	if(esp_sta_current_state == ESP_STA_WAIT_COMMANDS) 
-	{
-		status_led_mode = connected_to_ap;
-		if(check_until_timeout("+IPD,", 1))
-		{
-			currStrPos = strstr(serialResult, "+IPD,");		
-			esp_aux_client_data(serialResult);
-			currStrPos = strchr(currStrPos, ':');  //find end of client IP, Port nr
-			dataPtr = currStrPos + 1;
-			
-			if(*dataPtr == '$')  //if we receive a command for PWM setting - command begins with $
+			status_led_mode = wait_for_ip;
+			u8work_int = esp_init_hw(ESP_CONFIG_INIT_DELAY);
+			timer_delay_ms(100);
+			if(ESP_RETURN_OK == u8work_int)
 			{
-				dataPtr++;
-				u8work_int = (*dataPtr) - 0x30;
-				dataPtr++;
-				//check if next character is start of duty cycle byte (#) or still channel nr.
-				if(*dataPtr != '#')
-				{
-					u8work_int = (u8work_int*10)+((*dataPtr) - 0x30);
-				}
-				currStrPos = strchr(currStrPos, '#');  //find start of duty cycle byte
-				dataPtr = currStrPos + 1;  //go to duty cycle byte
-				if(pwm_wifi_update(u8work_int,  ((uint8_t)*dataPtr)))
-				{
-					//pwm duty cycle update was successeful (values OK)
-					esp_response(senderID, clientIPString, "OK");
-				}
-				else
-				{
-					esp_response(senderID, clientIPString, "Error");
-				}
-				u8work_int = 0;
+				u8esp_current_state = ESP_STATE_CHECK_CONNECTION;
 			}
-			else if(*dataPtr == '#') //if we receive a command other than PWM setting - command begins with #
+			uart_flush();
+		break;
+		
+		case ESP_STATE_CHECK_CONNECTION:
+			#if ESP_CONFIG_FORCE_WIFI_SETUP
+				u8esp_current_state = ESP_STATE_START_AP;
+			#else
+			memset(esp_station_IP,0,BUFFER_SIZE_IP_STRING);
+			u8work_int = esp_check_connection(/*ac_ip_check_result*/);
+			if(ESP_RETURN_CONNECTED == u8work_int) {
+				u8esp_current_state = ESP_STATE_START_TCP_SERVER;
+				esp_is_connected = true;
+				status_led_mode = connected_to_ap;
+			} else if(ESP_RETURN_NOT_CONNECTED == u8work_int) {
+				u8esp_current_state = ESP_STATE_START_AP;
+				esp_is_connected = false;
+			} else {
+				uart_send_string(ERROR_ESP_STATE_CHECK_CONNECTION_UnknownCheckConnResult);
+			}
+			#endif //ESP_CONFIG_FORCE_WIFI_SETUP
+		break;
+		
+		case ESP_STATE_START_AP:
+			u8work_int = esp_ap_control(ESP_SYM_AP_ON);
+			if(ESP_RETURN_AP_ON == u8work_int)
 			{
-				dataPtr++;
-				switch (*dataPtr)
+				u8esp_current_state = ESP_STATE_START_TCP_SERVER;
+			}
+			else
+			{
+				uart_send_string(ERRPR_ESP_STATE_START_AP_FailedStartAP);
+			}
+			uart_flush();
+		break;
+		
+		case ESP_STATE_START_TCP_SERVER:
+			/*
+			 * Close previously created server; replies "no change" if none was created before
+			 * Start new TCP server on ESP_CONF_TCP_PORT
+			 * Get detailed information (IP & PORT) in +IPD
+			 * Time until TCP server connection is closed
+			 */
+			u8work_int = 1;
+			if (send_command("AT+CIPSERVER=0", "OK")) {
+				u8work_int &= 1;
+			} else {
+				uart_send_string(ERROR_ESP_STATE_START_TCP_SERVER_FailedOldServerStop);
+				u8work_int &= 0;
+			}
+			timer_delay_ms(400);
+			memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+			strcpy(ac_work_string,"AT+CIPSERVER=1,");
+			strcat(ac_work_string, ESP_CONFIG_TCP_PORT);			
+			//if (send_command(strcat("AT+CIPSERVER=1,", ESP_CONFIG_TCP_PORT), "OK")) {
+			//if (send_command("AT+CIPSERVER=1,1001", "OK")) {
+			if (send_command(ac_work_string, "OK")) {
+				u8work_int &= 1;
+			} else {
+				uart_send_string(ERROR_ESP_STATE_START_TCP_SERVER_FailedServerStart);
+				u8work_int &= 0;
+			}
+			timer_delay_ms(400);
+			memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+			if (send_command("AT+CIPDINFO=1", "OK")) {
+				u8work_int &= 1;
+			} else {
+				uart_send_string(ERROR_ESP_STATE_START_TCP_SERVER_FailedAdditionalInfoRequest);
+				u8work_int &= 0;
+			}
+			timer_delay_ms(50);
+			if (send_command(strcat("AT+CIPSTO=",ESP_CONFIG_TCP_TIMEOUT), "OK")) {
+				u8work_int &= 1;
+			} else {
+				uart_send_string(ERROR_ESP_STATE_START_TCP_SERVER_FailedSterverTimeout);
+				u8work_int &= 0;
+			}
+			timer_delay_ms(50);
+			if (u8work_int) {
+				u8esp_current_state = ESP_STATE_WAIT_DATA;
+			}
+			uart_flush();
+			u8work_int = 0;
+		break;
+		
+		case ESP_STATE_WAIT_DATA:
+			/* 
+			 * Incoming data example:
+			 * +IPD,0,25,192.168.4.2,50511:@"MyWifiNetworkSSID","MyPassword"
+			 * +IPD,0,7,192.168.1.136,64238:$Channel#PowerValue
+			 * +IPD,0,7,192.168.1.136,64238:#CommandOption
+			 */
+			if(check_until_timeout("+IPD,", 1))
+			{
+				pc_current_string_pos = strstr(esp_serial_result, "+IPD,");
+				pc_current_string_pos = strchr(pc_current_string_pos, ',');  //find end of +IPD, the ',' character right before connection ID
+				pc_current_string_pos++;
+				esp_aux_client_data(pc_current_string_pos, &u8connection_ID, ac_client_IP);
+
+				
+				pc_current_string_pos = strchr(pc_current_string_pos, ':');  //find end of client IP, port nr
+				pc_current_string_pos++;
+				if(*pc_current_string_pos == ESP_SYM_DATA_IS_PWM_CH)  //if we receive a command for PWM setting - command begins with $
 				{
-					case 'E':  //E command: get STA IP
-						if(esp_check_connection(ipCheckResult))  //esp station has IP
+					pc_current_string_pos++;
+					u8work_int = (*pc_current_string_pos) - 0x30;
+					pc_current_string_pos++;
+					//check if next character is start of duty cycle byte (#) or still channel nr.
+					if(*pc_current_string_pos != ESP_SYM_DATA_IS_PWM_DC)
+					{
+						u8work_int = (u8work_int*10)+((*pc_current_string_pos) - 0x30);
+					}
+					pc_current_string_pos = strchr(pc_current_string_pos, ESP_SYM_DATA_IS_PWM_DC);  //find start of duty cycle byte
+					pc_current_string_pos++;  //go to duty cycle byte
+					if(pwm_wifi_update(u8work_int,  ((uint8_t)*pc_current_string_pos)))
+					{
+						//pwm duty cycle update was successful (values OK)
+						esp_response(u8connection_ID, ac_client_IP, "OK");
+					}
+					else
+					{
+						esp_response(u8connection_ID, ac_client_IP, "ERR");
+					}
+					u8work_int = 0;
+				}
+				else if(*pc_current_string_pos == ESP_SYM_DATA_IS_CMD) // we receive a command other than PWM setting - command begins with #
+				{
+					pc_current_string_pos++;
+					switch (*pc_current_string_pos)
+					{
+						case ESP_CMD_GET_STA_IP:  //E command: get STA IP
+						memset(esp_station_IP,0,BUFFER_SIZE_IP_STRING);
+						if(esp_check_connection(/*ac_ip_check_result*/))  //esp station has IP
 						{
-							esp_aux_calc_station_ip(ipCheckResult);
-							esp_response(senderID, clientIPString, stationIPString);
+							/*esp_aux_calc_station_ip(ac_ip_check_result);*/
+							esp_response(u8connection_ID, ac_client_IP, esp_station_IP);
+						} else {
+							esp_response(u8connection_ID, ac_client_IP, "NO CONN");
 						}
-					break;
-					
-					case 'F':  //F command: activate / deactivate ESP auto connect to saved network
-						dataPtr++;
-						if(*dataPtr == '0')  //deactivate auto connect
+						break;
+						
+						case ESP_CMD_SET_AUTOCONNECT:  //F command: activate / deactivate ESP auto connect to saved network
+						pc_current_string_pos++;
+						#if 1
+						if((*pc_current_string_pos == ESP_SYM_AUTOCONNECT_ON) || \
+						(*pc_current_string_pos == ESP_SYM_AUTOCONNECT_OFF)) {
+							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+							strcpy(ac_work_string,"AT+CWAUTOCONN=");
+							strcat(ac_work_string,pc_current_string_pos);
+							if (send_command(ac_work_string,"OK")) {
+								eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,*pc_current_string_pos);
+								esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
+							} else {
+								esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
+							}
+							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+						} else {
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"NOTDEF"));
+						}
+						#else
+						if(*pc_current_string_pos == '0')  //deactivate auto connect
 						{
 							send_command("AT+CWAUTOCONN=0", "OK");
-							eeprom_write_byte(EEL_ESP_AUTOCONNECT,0x30);
-							esp_response(senderID, clientIPString, "0");
+							eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,ESP_SYM_AUTOCONNECT_ON);
+							esp_response(u8connection_ID, ac_client_IP, "0");
 						}
-						else if(*dataPtr == '1') //activate auto connect
+						else if(*pc_current_string_pos == '1') //activate auto connect
 						{
 							send_command("AT+CWAUTOCONN=1", "OK");
-							eeprom_write_byte(EEL_ESP_AUTOCONNECT,0x31);
-							esp_response(senderID, clientIPString, "1");
+							eeprom_write_byte(EEL_ADDR_ESP_AUTOCONNECT,ESP_SYM_AUTOCONNECT_OFF);
+							esp_response(u8connection_ID, ac_client_IP, "1");
 						}
 						else{ /*do nothing*/ }
-					break;
-					
-					case 'G':  //G command: set default PWM (will be stored in EEPROM)
-						dataPtr++;
-						if(pwm_save_default_dutycycle((uint8_t)*dataPtr))
+						#endif
+						
+						break;
+						
+						case ESP_CMD_SET_DEFAULT_PWM:  //G command: set default PWM (will be stored in EEPROM)
+						pc_current_string_pos++;
+						if(pwm_save_default_dutycycle((uint8_t)*pc_current_string_pos))
 						{
-							esp_response(senderID, clientIPString, strcat(dataPtr,"->OK"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 						}
 						else
 						{
-							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
-						}			
-					break;
-					
-					case 'H':  //H command: set startup animation
-						dataPtr++;
-						if(animation_save_startup_anim((uint8_t)*dataPtr))
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
+						}
+						break;
+						
+						case ESP_CMD_SET_STARTUP_ANIM:  //H command: set startup animation
+						pc_current_string_pos++;
+						if(animation_save_startup_anim((uint8_t)*pc_current_string_pos))
 						{
-							esp_response(senderID, clientIPString, strcat(dataPtr,"->OK"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 						}
 						else
 						{
-							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 						}
-					break;
-					
-					case 'I':  //I command: set no network animation
-						dataPtr++;
-						if(animation_save_no_netw_anim((uint8_t)*dataPtr))
+						break;
+						
+						case ESP_CMD_SET_NO_NETWORK_ANIM:  //I command: set no network animation
+						pc_current_string_pos++;
+						if(animation_save_no_netw_anim((uint8_t)*pc_current_string_pos))
 						{
-							esp_response(senderID, clientIPString, strcat(dataPtr,"->OK"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 						}
 						else
 						{
-							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 						}
-					break;
+						break;
 
-					case 'J':  //J command: set no network notification power
-						dataPtr++;
-						if(animation_save_no_netw_power((uint8_t)*dataPtr))
+						case ESP_CMD_SET_NO_NETWORK_POWER:  //J command: set no network notification power
+						pc_current_string_pos++;
+						if(animation_save_no_netw_power((uint8_t)*pc_current_string_pos))
 						{
-							esp_response(senderID, clientIPString, strcat(dataPtr,"->OK"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 						}
 						else
 						{
-							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 						}
-					break;
+						break;
 
-					case 'K': //K command:get the device ID from eeprom
+						case ESP_CMD_GET_DEVICE_ID: //K command:get the device ID from eeprom
 						u8work_int = eeprom_load_id();
 						if(u8work_int != EEPROM_INVALID_ID)
 						{
-							esp_response(senderID, clientIPString, (char*)&u8work_int /*strcat("LL",&u8dev_id)*/);
+							esp_response(u8connection_ID, ac_client_IP, (char*)&u8work_int /*strcat("LL",&u8dev_id)*/);
 						}
 						else
 						{
-							esp_response(senderID, clientIPString, "No valid ID");
+							esp_response(u8connection_ID, ac_client_IP, "NoID");
 						}
-					break;
+						break;
 
-					case 'L': //L command:save the device ID to eeprom
-						dataPtr++;
-						if(eeprom_save_id((uint8_t)*dataPtr))
+						case ESP_CMD_SET_DEVICE_ID: //L command:save the device ID to eeprom
+						pc_current_string_pos++;
+						if(eeprom_save_id((uint8_t)*pc_current_string_pos))
 						{
-							esp_response(senderID, clientIPString, strcat(dataPtr,"->OK"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
 						}
 						else
 						{
-							esp_response(senderID, clientIPString, strcat(dataPtr,"->Error"));
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
 						}
-					break;
+						break;
 
-					case 'M': //J command:sync device settings
-					dataPtr++;
-					//byte 0 -> 11 of response contain the channel PWM duty cycles
-					for (u8work_int=0; u8work_int<PWM_CHMAX; u8work_int++) 
-					{
-						*(workString+u8work_int) = pwm_width_buffer[u8work_int];
-					}
-					
-					//byte 12 contains the ESP AUTOCONN On / Off setting
-					u8work_int=PWM_CHMAX;
-					*(workString+u8work_int) = eeprom_read_byte(EEL_ESP_AUTOCONNECT);
-					
-					//byte 13 contains the ESP AP ALWAYS ON On / Off setting
-					u8work_int++;
-					*(workString+u8work_int) = eeprom_read_byte(EEL_AP_ALWAYS_ON);
-					
-					//byte 14 contains the StartUpAnimation setting
-					u8work_int++;
-					*(workString+u8work_int) =  eeprom_read_byte(EEL_STARTUP_ANIMATION);
-					
-					//byte 15 contains the No Conn Notif
-					u8work_int++;
-					*(workString+u8work_int) = eeprom_read_byte(EEL_NO_CONN_NOTIFICATION);
-					
-					//byte 15 contains the No Conn Power
-					u8work_int++;
-					*(workString+u8work_int) = eeprom_read_byte(EEL_NO_CONN_POWER);
+						case ESP_CMD_GET_DEVICE_SETTINGS: //M command:sync device settings
+							//byte 0 -> 11 of response contain the channel PWM duty cycles
+							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+							for (u8work_int=0; u8work_int<PWM_CONFIG_CHMAX; u8work_int++)
+							{
+								*(ac_work_string+u8work_int) = pwm_width_buffer[u8work_int];
+							}
+							
+							//byte 12 contains the ESP AUTOCONN On / Off setting
+							u8work_int=PWM_CONFIG_CHMAX;
+							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_ESP_AUTOCONNECT);
+							
+							//byte 13 contains the ESP AP ALWAYS ON On / Off setting
+							u8work_int++;
+							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON);
+							
+							//byte 14 contains the StartUpAnimation setting
+							u8work_int++;
+							*(ac_work_string+u8work_int) =  eeprom_read_byte(EEL_ADDR_STARTUP_ANIMATION);
+							
+							//byte 15 contains the No Conn Notif
+							u8work_int++;
+							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_NO_CONN_NOTIFICATION);
+							
+							//byte 15 contains the No Conn Power
+							u8work_int++;
+							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_NO_CONN_POWER);
 
-					//byte 16 contains the Default Power
-					u8work_int++;
-					*(workString+u8work_int) = eeprom_read_byte(EEL_DEFAULT_POWER);					
-					
-					esp_response(senderID, clientIPString, workString);
-					break;
+							//byte 16 contains the Default Power
+							u8work_int++;
+							*(ac_work_string+u8work_int) = eeprom_read_byte(EEL_ADDR_DEFAULT_POWER);
+							
+							esp_response(u8connection_ID, ac_client_IP, ac_work_string);
+							memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+						break;
+						
+						case ESP_CMD_SET_AP_ALWAYS_ON:  //configure AP to be or not to be always on in EEPROM
+							pc_current_string_pos++;
+							eeprom_write_byte(EEL_ADDR_AP_ALWAYS_ON, (uint8_t)*pc_current_string_pos);  
+							//0x30 not always ON, 0x31 always ON	
+							if(((*pc_current_string_pos) == ESP_SYM_AP_ALWAYS_ON) || ((*pc_current_string_pos) == ESP_SYM_AP_NOT_ALWAYS_ON))
+							{
+								esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
+							}
+							else
+							{
+								esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
+							}
+						break;
 
-					default:
+						case ESP_CMD_SET_AP_ON_OFF:  //switch AP on / off
+						pc_current_string_pos++;
+						u8work_int = esp_ap_control((uint8_t)*pc_current_string_pos);
+						
+						if(u8work_int)
+						{
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"OK"));
+						}
+						else
+						{
+							esp_response(u8connection_ID, ac_client_IP, strcat(pc_current_string_pos,"ERR"));
+						}
+						break;
+						
+						case ESP_CMD_SET_BYTE_EEPROM:  //Generic command to set a byte in EEPROM: #(Addr=2byte)(Data=1Byte)
+							pc_current_string_pos++;
+							u8work_int = (*pc_current_string_pos)-0x30;  //MSB of address converted from ascii to int with -0x30
+							u16work_int = ((uint16_t)u8work_int) << 8;
+							
+							pc_current_string_pos++;
+							u8work_int = (*pc_current_string_pos)-0x30; //LSB of address
+							u16work_int |= (uint16_t)u8work_int;
+							
+							pc_current_string_pos++;
+							u8work_int = (*pc_current_string_pos); //data to be written
+							
+							if (u16work_int < EEPROM_CONFIG_SIZE) {
+								#if 0
+								uart_send_uhex(u16work_int); uart_send_char('>'); uart_send_uhex(u8work_int); uart_newline();
+								#endif
+								eeprom_write_byte(u16work_int,u8work_int);
+								esp_response(u8connection_ID, ac_client_IP, "DONE");
+							} else {
+								esp_response(u8connection_ID, ac_client_IP, "ADDR ERR");
+							}
+							u16work_int = 0xFFFF;
+						break;
+						
+						case ESP_CMD_GET_BYTE_EEPROM:
+							pc_current_string_pos++;
+							u8work_int = (*pc_current_string_pos)-0x30;  //MSB of address
+							u16work_int = ((uint16_t)u8work_int) << 8;
+							
+							pc_current_string_pos++;
+							u8work_int = (*pc_current_string_pos)-0x30; //LSB of address
+							u16work_int |= (uint16_t)u8work_int;							
+							
+							if (u16work_int < EEPROM_CONFIG_SIZE) {
+								#if 0
+								uart_send_uhex(u16work_int); uart_newline();
+								#endif
+								u8work_int = eeprom_read_byte(u16work_int);
+								esp_response(u8connection_ID, ac_client_IP, (char *)&u8work_int);
+							} else {
+								esp_response(u8connection_ID, ac_client_IP, "ADDR ERR");
+							}
+							u16work_int = 0xFFFF;
+						break;						
+
+						case ESP_CMD_RESET_EEPROM:
+							eeprom_write_byte(EEL_ADDR_FIRST_START,0);
+							eeprom_init();
+							esp_response(u8connection_ID, ac_client_IP, "DONE");
+						break;
+						
+						case ESP_CMD_RESET_SYSTEM:
+							//Use Watchdog Timer and an infinite loop to reset the processor
+						break;
+						
+						
+						default:
 						//do nothing
-					break;
+						break;
+					}
+					u8work_int = 0;  //reset
+					timer_delay_ms(2000);
 				}
-				u8work_int = 0;  //reset
-				timer_delay_ms(2000);
+				else if(*pc_current_string_pos == ESP_SYM_DATA_IS_SSID) //we receive network credentials - command begins with @
+				{
+					pc_current_string_pos++;
+					strcpy(esp_wifi_credentials, pc_current_string_pos);
+					u8esp_current_state = ESP_STATE_JOIN_NEW_NETWORK;
+				}
 			}
-
-			// if +IPD command is sent at the same time as AT+CIFSR triggered from timer
-			// then +IPD is not recognized and pwm is not updated
-			// client would have to send the command again
+			/*
+			 * Handling of continuous connection checking:
+			 * Check connection only when WIFI DISCONNECT or WIFI CONNECTED 
+			 * is found in esp_serial_result up to this point,
+			 * receive_serial function was called above
+			 * this seems to work best for a beta version
+			 * more tests needed to see if fully stable
+			 */
+			#if ESP_CONFIG_CHECK_RUNTIME_CONNECTION
+			//if((strstr(esp_serial_result, "DISCONNECT") != NULL) || (strstr(esp_serial_result, "CONNECTED") != NULL)) {
+			/*
+			 * Sometimes when network connection was lost (DISCONNECT detected) 
+			 * and right after that the connection reestablished, 
+			 * the CONNECTED word was not detected.
+			 * For this reason for the moment look for word WIFI, 
+			 * that should arise only @ disconnect / connect.
+			 */
+			if(strstr(esp_serial_result, "WIFI") != NULL){
+				u8esp_current_state = ESP_STATE_HW_INIT;
+			}
+			#endif	//ESP_CONFIG_CHECK_RUNTIME_CONNECTION
 			uart_flush();
-		}
+		break;
 		
-		#if 1
-		// check connection only when WIFI [DISCONNECT] is found in serialResult
-		// up to this point, receive_serial function was called above
-		// this seems to work best for a beta version
-		// more tests needed to see if fully stable
-		#if WIFI_CHECKCONNECTION_FUNCTION
-		if(strstr(serialResult, "WIFI") != NULL)
-		{
+		case ESP_STATE_JOIN_NEW_NETWORK:
+			//connect to new SSID
 			uart_flush();
-			esp_sta_current_state = ESP_STA_CHECK_CONNECTION;
-		}
-		#endif	//WIFI_CHECKCONNECTION_FUNCTION
-		#endif
+			esp_is_connected = false;
+			uart_send_string("AT+CWJAP=");
+			uart_send_string(esp_wifi_credentials);
+			uart_newline();
+			timer_delay_ms(1200);
+			u8work_int = ESP_RETURN_NDEF;
+			
+			memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+			do
+			{
+				uart_get_string(ac_work_string, 32);	// at this point, ac_work_string contains response from AT+CWJAP
+				if(strstr(ac_work_string, "OK") != NULL)
+				{
+					u8work_int = ESP_RETURN_CONNECT_SUCCESS;
+				}
+				else if(strstr(ac_work_string, "FAIL") != NULL)
+				{
+					u8work_int = ESP_RETURN_CONNECT_FAILED;
+				}
+			} while ((u8work_int != ESP_RETURN_CONNECT_SUCCESS) && (u8work_int != ESP_RETURN_CONNECT_FAILED));
+			memset(ac_work_string,0,BUFFER_SIZE_GENERIC_WORK_STRING);
+			// if esp succeeded in connecting to ssid and pass provided
+			if(ESP_RETURN_CONNECT_SUCCESS == u8work_int)
+			{
+				timer_delay_ms(1000);
+				memset(esp_station_IP,0,BUFFER_SIZE_IP_STRING);
+				u8work_int = esp_check_connection(/*ac_ip_check_result*/);
+				if(ESP_RETURN_CONNECTED == u8work_int)  //esp station has IP
+				{
+					/*esp_aux_calc_station_ip(ac_ip_check_result);*/
+					esp_response(u8connection_ID, ac_client_IP, esp_station_IP);
+					timer_delay_ms(2000);
+					esp_is_connected = true;
+					status_led_mode = connected_to_ap;
+					//now it's possible to turn AP off if this is the setting in eeprom
+					if(eeprom_read_byte(EEL_ADDR_AP_ALWAYS_ON) == ESP_SYM_AP_NOT_ALWAYS_ON)
+					{
+						u8work_int = esp_ap_control(ESP_SYM_AP_OFF);
+						if (u8work_int != ESP_RETURN_AP_OFF)
+						{
+							uart_send_string(ERROR_ESP_STATE_JOIN_NEW_NETWORK_ESP_RETURN_CONNECT_SUCCESS_FailedAPSetting);
+						}
+					}
+					u8connection_retry_count = 0;
+					u8esp_current_state = ESP_STATE_WAIT_DATA;
+					eeprom_save_wifi_credentials(esp_wifi_credentials);
+				}
+				else if (ESP_RETURN_NOT_CONNECTED == u8work_int) //esp station didn't get an IP
+				{
+					//try to join AP again
+					if(u8connection_retry_count < ESP_CONFIG_CONNECTION_MAX_RETRY)
+					{
+						u8connection_retry_count++;
+						u8esp_current_state = ESP_STATE_JOIN_NEW_NETWORK;
+					}
+					else
+					{
+						esp_response(u8connection_ID, ac_client_IP, "Could not connect");
+						timer_delay_ms(2000);
+						u8connection_retry_count = 0;
+						u8esp_current_state = ESP_STATE_START_AP;
+						}
+				}
+				else 
+				{
+					u8connection_retry_count = 0; 
+					uart_send_string("ERROR_ESP_STATE_JOIN_NEW_NETWORK_ESP_RETURN_CONNECT_SUCCESS_UndefinedIPStatus"); 
+				}
+			}
+			// if esp failed in connecting to ssid and pass provided, go back to receive ssid and pass state
+			else if(ESP_RETURN_CONNECT_FAILED == u8work_int)
+			{
+				if(u8connection_retry_count < ESP_CONFIG_CONNECTION_MAX_RETRY)
+				{
+					u8connection_retry_count++;
+					u8esp_current_state = ESP_STATE_JOIN_NEW_NETWORK;
+				}
+				else 
+				{
+					esp_response(u8connection_ID, ac_client_IP, "Could not connect");
+					timer_delay_ms(2000);
+					u8connection_retry_count = 0;
+					u8esp_current_state = ESP_STATE_START_AP;
+				}
+			}
+			else 
+			{
+				u8connection_retry_count = 0;
+				uart_send_string("ERROR_ESP_STATE_JOIN_NEW_NETWORK_UndefinedConnectionStatus");
+			}
+			uart_flush();
+		break;
+		default:
+			//nothing nothing
+		break;
+		memset(ac_client_IP, 0, BUFFER_SIZE_IP_STRING);
 	}
 }
 

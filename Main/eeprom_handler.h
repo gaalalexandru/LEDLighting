@@ -18,4 +18,7 @@ uint8_t eeprom_read_byte(uint16_t u16address);
 uint8_t eeprom_load_id(void);
 uint8_t eeprom_save_id(uint8_t u8dev_id);
 
+int8_t eeprom_save_wifi_credentials(char *pcwifi_credentials);
+int8_t eeprom_load_wifi_credentials(char *pcwifi_credentials);
+
 #endif /* EEPROM_HANDLER_H_ */

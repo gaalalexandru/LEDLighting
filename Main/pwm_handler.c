@@ -30,8 +30,8 @@
 #define PWM_SET_CH11(x)	set_port_c(5,x)
 
 //global buffers
-uint8_t pwm_width[PWM_CHMAX];
-volatile uint8_t pwm_width_buffer[PWM_CHMAX];
+uint8_t pwm_width[PWM_CONFIG_CHMAX];
+volatile uint8_t pwm_width_buffer[PWM_CONFIG_CHMAX];
 
 //Set PORT level true = high, false = low
 //pin = pin number to be set / cleared
@@ -88,9 +88,9 @@ static void pwm_set_all_chanels(const bool level)
 uint8_t pwm_save_default_dutycycle(uint8_t u8duty)
 {
 	uint8_t u8data_check;
-	if((u8duty>=PWM_DUTY_CYCLE_RESET_VALUE)&&(u8duty<=PWM_DUTY_MAX_VALUE))
+	if((u8duty>=PWM_CONFIG_DUTY_CYCLE_RESET_VALUE)&&(u8duty<=PWM_CONFIG_DUTY_MAX_VALUE))
 	{
-		eeprom_write_byte(EEL_DEFAULT_POWER, u8duty);
+		eeprom_write_byte(EEL_ADDR_DEFAULT_POWER, u8duty);
 		u8data_check = 1;
 	}
 	else
@@ -102,7 +102,7 @@ uint8_t pwm_save_default_dutycycle(uint8_t u8duty)
 
 uint8_t pwm_load_default_dutycycle(void)
 {
-	return (eeprom_read_byte(EEL_DEFAULT_POWER));
+	return (eeprom_read_byte(EEL_ADDR_DEFAULT_POWER));
 }
 
 void pwm_init(void)
@@ -112,16 +112,19 @@ void pwm_init(void)
 	uint8_t u8anim = 0;
 	
 	u8anim = animation_load_startup_anim();
-	if(u8anim == ANIMATION_SUA_NONE)
-	//if no startup animation is coded, just simply start LEDs
+	if(u8anim == ANIMATION_SYM_SUA_NONE)
+	//if no startup animation is coded, just simply start LEDs at preset value
 	{
 		pwm = pwm_load_default_dutycycle();
-		for (i = 0; i < PWM_CHMAX; i++) // initialize all channels
-		{
-			pwm_width[i]  = pwm; // set default PWM values
-			pwm_width_buffer[i] = pwm; // set default PWM values
-		}
+	} else { //set light off, startup animation will start them
+		pwm = PWM_CONFIG_DUTY_CYCLE_RESET_VALUE;
 	}
+	for (i = 0; i < PWM_CONFIG_CHMAX; i++) // initialize all channels
+	{
+		pwm_width[i]  = pwm; // set default PWM values
+		pwm_width_buffer[i] = pwm; // set default PWM values
+		}
+
 	DDRB |= 0x07;  //Set output pin 0, 1, 2 of port B
 	DDRD |= 0xE0;  //Set output pin 5, 6, 7 of port D
 	DDRC |= 0x3F;  //Set output pin 0, 1, 2, 3, 4, 5 of port C
@@ -130,18 +133,18 @@ void pwm_init(void)
 
 void pwm_update(void)
 {	
-	static uint8_t softcount = PWM_DUTY_CYCLE_RESET_VALUE;
+	static uint8_t softcount = PWM_CONFIG_DUTY_CYCLE_RESET_VALUE;
 	/* increment counter and update
 	the pwm_width values only when counter = 0.
 	verbose code for speed, do not replace with for...
-	last element should equal PWM_CHMAX - 1 */
+	last element should equal PWM_CONFIG_CHMAX - 1 */
 	//softcount = (softcount + 1) % PWM_DUTY_CYCLE_RESOLUTION;  //slower method
 	softcount++;  // faster method with if condition
-	if(softcount >= PWM_DUTY_MAX_VALUE)
+	if(softcount >= PWM_CONFIG_DUTY_MAX_VALUE)
 	{
-		softcount = PWM_DUTY_CYCLE_RESET_VALUE;
+		softcount = PWM_CONFIG_DUTY_CYCLE_RESET_VALUE;
 	}
-	if (softcount == PWM_DUTY_CYCLE_RESET_VALUE)
+	if (softcount == PWM_CONFIG_DUTY_CYCLE_RESET_VALUE)
 	{
 		pwm_width[0] = pwm_width_buffer[0]; 
 		pwm_width[1] = pwm_width_buffer[1];
@@ -206,29 +209,29 @@ uint8_t pwm_wifi_update(uint8_t channel_nr, uint8_t duty_cycle)
 {
 	uint8_t response = 0;
 	uint8_t i = 0;
-	if((duty_cycle >= PWM_DUTY_CYCLE_RESET_VALUE) && (duty_cycle <= PWM_DUTY_MAX_VALUE) && (channel_nr >= 0)  && (channel_nr <= PWM_HALF2_CH))  //check for valid inputs
+	if((duty_cycle >= PWM_CONFIG_DUTY_CYCLE_RESET_VALUE) && (duty_cycle <= PWM_CONFIG_DUTY_MAX_VALUE) && (channel_nr >= 0)  && (channel_nr <= PWM_SYM_HALF2_CH))  //check for valid inputs
 	{
-		if(channel_nr < PWM_CHMAX) //decide to control single channels or channel groups
+		if(channel_nr < PWM_CONFIG_CHMAX) //decide to control single channels or channel groups
 		{
 			pwm_width_buffer[channel_nr] = duty_cycle; // update pwm_width buffer
 		}
-		else if(channel_nr == PWM_ALL_CH)  //12: all channels 0-11
+		else if(channel_nr == PWM_SYM_ALL_CH)  //12: all channels 0-11
 		{
-			for(i=0; i<PWM_CHMAX; i++)
+			for(i=0; i<PWM_CONFIG_CHMAX; i++)
 			{
 				pwm_width_buffer[i] = duty_cycle;
 			}
 		}
-		else if(channel_nr == PWM_HALF1_CH)  //13: channel 0-5
+		else if(channel_nr == PWM_SYM_HALF1_CH)  //13: channel 0-5
 		{
-			for(i=0; i<PWM_CHMAX/2; i++)
+			for(i=0; i<PWM_CONFIG_CHMAX/2; i++)
 			{
 				pwm_width_buffer[i] = duty_cycle;
 			}
 		}
-		else if(channel_nr == PWM_HALF2_CH)  //14: channel 6-11
+		else if(channel_nr == PWM_SYM_HALF2_CH)  //14: channel 6-11
 		{
-			for(i=PWM_CHMAX/2; i<PWM_CHMAX; i++)
+			for(i=PWM_CONFIG_CHMAX/2; i<PWM_CONFIG_CHMAX; i++)
 			{
 				pwm_width_buffer[i] = duty_cycle;
 			}
