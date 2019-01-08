@@ -18,6 +18,8 @@
 #include "animation_handler.h"
 #include "eeprom_handler.h"
 
+extern volatile bool timer_reset_check_done;
+
 int main(void)
 {
 	eeprom_init();
@@ -50,7 +52,7 @@ int main(void)
 	
 	sei();  // enable global interrupts
 
-    while(1)
+    while(timer_reset_check_done/*1*/)
     {
 		#if PWM_TERMINAL_CONTROL
 			manual_control();

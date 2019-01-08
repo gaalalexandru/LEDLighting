@@ -171,8 +171,8 @@
 /************************************************************************/
 /*							RESET CONFIGURATIONS						*/
 /************************************************************************/
-#define RESET_CONFIG_CHECK_START_TIME	(1000)
-#define RESET_CONFIG_CHECK_END_TIME (3000)
+#define RESET_CONFIG_CHECK_START_TIME	(100)
+#define RESET_CONFIG_CHECK_END_TIME (2000)
 
 #define RESET_SYM_DO_RESET	(0x52) //'R'
 #define RESET_SYM_NO_RESET	(0x4E) //'N'

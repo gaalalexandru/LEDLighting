@@ -30,6 +30,8 @@ void reset_check(void)
 
 void reset_clear(void) {
 	eeprom_write_byte(EEL_ADDR_RESET_COUNT, 0);
+	uart_send_string("CLR RST"); uart_newline();
+	//STATUS_LED_PORT = (1<<STATUS_LED_PIN);
 }
 
 void reset_controller(void) {

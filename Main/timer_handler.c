@@ -12,6 +12,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h>
+#include <stdbool.h>
 #include "configuration.h"
 #include "timer_handler.h"
 #include "pwm_handler.h"
@@ -19,13 +20,14 @@
 #include "esp_wifi_handler.h"
 #include "animation_handler.h"
 #include "reset_handler.h"
+#include "uart_handler.h"
 
 /************************************************************************/
 /*	                          Global Variables                          */
 /************************************************************************/
 volatile uint32_t timer_system_ms = 0;  //system startup counter in milliseconds
 extern volatile uint8_t esp_is_connected;
-
+volatile bool timer_reset_check_done = false;
 /************************************************************************/
 /*	                  Timer Initialization Functions                    */
 /************************************************************************/
@@ -175,12 +177,14 @@ ISR (TIMER2_COMP_vect)
 		(timer_system_ms <= RESET_CONFIG_CHECK_END_TIME)) { // if the time frame is OK
 			u8reset_check = 0;
 			u8reset_clear = 1;
+			uart_init(MYUBRR);
 			reset_check(); //check for reset count
 		}
 	} else if (u8reset_clear) {
 		if(timer_system_ms >= RESET_CONFIG_CHECK_END_TIME) {
 			reset_clear();
 			u8reset_clear = 0;
+			timer_reset_check_done = true;
 		}
 	}
 }
