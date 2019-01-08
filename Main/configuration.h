@@ -146,14 +146,11 @@
 #define EEL_ADDR_DEVICE_ID				(0x0005)  //0x41 -> 0x5A
 #define EEL_ADDR_AP_ALWAYS_ON			(0x0006)  //0x30 Not always on, 0x31 Always on
 #define EEL_ADDR_ESP_AUTOCONNECT		(0x0007)  //0x30 ESP Autoconnect Off, 0x31 Autoconnect On
+#define EEL_ADDR_RESET_COUNT			(0x0008)  //holds the reset count
 
 #define EEL_ADDR_WIFI_CREDENTIALS_LENGTH	(0x000A) //address to store length of wifi credentials string (ssid & password) 
 #define EEL_ADDR_WIFI_CREDENTIALS_START		(0x000B) //start address to store wifi credentials
 #define EEL_ADDR_WIFI_CREDENTIALS_END		((0x000B)+40)  //end address to store wifi credentials (start + 40 bytes)
-
-#define EEL_ADDR_TIMESTAMP_RESET1	(0x0037)  //holds the timestamp of the 1st reset
-#define EEL_ADDR_TIMESTAMP_RESET2	(0x0038)  //holds the timestamp of the 2nd reset
-#define EEL_ADDR_TIMESTAMP_RESET3	(0x0039)  //holds the timestamp of the 3rd reset
 
 #define EEPROM_INITIALIZED		(0x49)  //'I' character, meaning EEPROM is initialized with default values.
 #define EEL_FACTORY_SUA			(ANIMATION_SYM_SUA_CIRCLE)
@@ -175,7 +172,7 @@
 /*							RESET CONFIGURATIONS						*/
 /************************************************************************/
 #define RESET_CONFIG_CHECK_START_TIME	(1000)
-#define RESET_CONFIG_CHECK_END_TIME) (3000)
+#define RESET_CONFIG_CHECK_END_TIME (3000)
 
 #define RESET_SYM_DO_RESET	(0x52) //'R'
 #define RESET_SYM_NO_RESET	(0x4E) //'N'

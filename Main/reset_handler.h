@@ -9,7 +9,8 @@
 #ifndef RESET_HANDLER_H_
 #define RESET_HANDLER_H_
 
-uint8_t reset_check(void);
+void reset_check(void);
+void reset_clear(void);
 void reset_controller(void);
 void reset_eeprom(void);
 
