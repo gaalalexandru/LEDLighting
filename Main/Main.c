@@ -24,6 +24,12 @@
 #define STATUS_LED_ON		(STATUS_LED_PORT |= (1 << STATUS_LED_PIN))
 #define STATUS_LED_OFF		(STATUS_LED_PORT &= ~(1 << STATUS_LED_PIN))
 
+#define RST_ESP_DIR	ESP_RST_DDR |= (1 << ESP_RST_PIN)
+#define	CH_PD_DIR	ESP_ENABLE_DDR |= (1 << ESP_ENABLE_PIN)
+#define RST_ESP_SET(x)	((x) ? (ESP_RST_PORT |= (1 << ESP_RST_PIN)) : (ESP_RST_PORT &= ~(1 << ESP_RST_PIN)))
+#define	CH_PD_SET(x)	((x) ? (ESP_ENABLE_PORT |= (1 << ESP_ENABLE_PIN)) : (ESP_ENABLE_PORT &= ~(1 << ESP_ENABLE_PIN)))
+
+
 typedef enum {
 	reset_check_not_done = 0, //1000 ms off
 	reset_checking = 1, //100 ms on, 900 ms off
@@ -34,7 +40,8 @@ typedef enum {
 extern volatile uint32_t timer_system_ms;
 
 int main(void) {
-	reset_check_state_t reset_check_state = reset_check_not_done;
+	//reset_check_state_t reset_check_state = reset_check_not_done;
+	uint8_t reset_check_state = reset_check_not_done;
 
 	eeprom_init();
 	
@@ -66,13 +73,19 @@ int main(void) {
 	
 	sei();  // enable global interrupts
 	
-	//timer_delay_ms(200);
-	
 	INIT_STATUS_LED;
+	
+	RST_ESP_DIR;
+	CH_PD_DIR;
+	CH_PD_SET(1);
+	
+	RST_ESP_SET(1);
+	RST_ESP_SET(0);
+	RST_ESP_SET(1);
 	
     while(1)
     {
-		if(reset_check_state < reset_check_nr_of_states) {
+		while(reset_check_state < reset_check_nr_of_states) {
 			switch(reset_check_state) {
 				case reset_check_not_done:
 					reset_check_state++;
@@ -80,8 +93,9 @@ int main(void) {
 				break;
 				
 				case reset_checking:
+					reset_check_state++;
 					if(reset_check()) { //check for reset count
-						reset_check_state++;
+						//STATUS_LED_ON;
 					}
 				break;
 				
@@ -89,7 +103,7 @@ int main(void) {
 					if(timer_system_ms > RESET_CONFIG_CHECK_END_TIME) { //finish reset checking
 						reset_clear();
 						reset_check_state++;
-						STATUS_LED_ON;
+						//STATUS_LED_OFF;
 					}
 					
 				break;
@@ -97,6 +111,7 @@ int main(void) {
 				default:
 				break;
 			}
+			timer_delay_ms(10);
 		}
 		#if PWM_TERMINAL_CONTROL
 			manual_control();

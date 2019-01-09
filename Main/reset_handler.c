@@ -13,28 +13,30 @@
 uint8_t reset_check(void) 
 {
 	uint8_t u8reset_count = eeprom_read_byte(EEL_ADDR_RESET_COUNT);
+	uint8_t u8reset_result = 0;
 	
-	
-	switch(u8reset_count){
+	switch(u8reset_count) {
 		case 0:
 		case 1:
 		case 2: 
 			u8reset_count++;
 			eeprom_write_byte(EEL_ADDR_RESET_COUNT, u8reset_count);
+			u8reset_result = 0;
 			
 			break;
 		case 3:
 			eeprom_write_byte(EEL_ADDR_RESET_COUNT, 0);
-			reset_eeprom();
-			reset_controller();
+			eeprom_write_byte(EEL_ADDR_STARTUP_ANIMATION, ANIMATION_SYM_SUA_SMOOTH);
+			u8reset_result = 1;
+			//reset_eeprom();
+			//reset_controller();
 	}
-	return 1;
+	return u8reset_result;
 }
 
 void reset_clear(void) {
 	eeprom_write_byte(EEL_ADDR_RESET_COUNT, 0);
 	//uart_send_string("CLR RST"); uart_newline();
-	//STATUS_LED_PORT = (1<<STATUS_LED_PIN);
 }
 
 void reset_controller(void) {

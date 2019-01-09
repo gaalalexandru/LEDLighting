@@ -238,6 +238,7 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 	 * Only on first startup: set value of Enable (CH_PD) pin
 	 * On every restart set - clear - set Reset (RST) pin
 	 */
+	#if 0
 	if(u8first_start)
 	{
 		RST_ESP_DIR;
@@ -245,6 +246,8 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 		CH_PD_SET(1);
 		u8first_start = 0;
 	}
+	#endif
+
 	
 	RST_ESP_SET(1);
 	RST_ESP_SET(0);
