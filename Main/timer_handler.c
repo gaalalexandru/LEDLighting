@@ -169,22 +169,5 @@ ISR (TIMER2_COMPA_vect)
 ISR (TIMER2_COMP_vect)
 #endif
 {
-	static uint8_t u8reset_check = 1;
-	static uint8_t u8reset_clear = 0;
 	timer_system_ms++; //increment every 1 ms
-	if(u8reset_check) {  //if a valid check wasn't done already
-		if((timer_system_ms >= RESET_CONFIG_CHECK_START_TIME) && \
-		(timer_system_ms <= RESET_CONFIG_CHECK_END_TIME)) { // if the time frame is OK
-			u8reset_check = 0;
-			u8reset_clear = 1;
-			uart_init(MYUBRR);
-			reset_check(); //check for reset count
-		}
-	} else if (u8reset_clear) {
-		if(timer_system_ms >= RESET_CONFIG_CHECK_END_TIME) {
-			reset_clear();
-			u8reset_clear = 0;
-			timer_reset_check_done = true;
-		}
-	}
 }

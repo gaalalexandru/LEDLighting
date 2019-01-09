@@ -17,11 +17,25 @@
 #include "status_led.h"
 #include "animation_handler.h"
 #include "eeprom_handler.h"
+#include "reset_handler.h"
 
-extern volatile bool timer_reset_check_done;
+#define INIT_STATUS_LED		(STATUS_LED_DDR |= (1 << STATUS_LED_PIN))
+#define TOGGLE_STATUS_LED	(STATUS_LED_PORT ^= (1 << STATUS_LED_PIN))
+#define STATUS_LED_ON		(STATUS_LED_PORT |= (1 << STATUS_LED_PIN))
+#define STATUS_LED_OFF		(STATUS_LED_PORT &= ~(1 << STATUS_LED_PIN))
 
-int main(void)
-{
+typedef enum {
+	reset_check_not_done = 0, //1000 ms off
+	reset_checking = 1, //100 ms on, 900 ms off
+	reset_check_done = 2,  //500 ms on, 500 ms off
+	reset_check_nr_of_states
+} reset_check_state_t;
+
+extern volatile uint32_t timer_system_ms;
+
+int main(void) {
+	reset_check_state_t reset_check_state = reset_check_not_done;
+
 	eeprom_init();
 	
 	cli();  //Disable interrupts
@@ -51,9 +65,39 @@ int main(void)
 	#endif  //LIGHTING_FUNCTIN
 	
 	sei();  // enable global interrupts
-
-    while(timer_reset_check_done/*1*/)
+	
+	//timer_delay_ms(200);
+	
+	INIT_STATUS_LED;
+	
+    while(1)
     {
+		if(reset_check_state < reset_check_nr_of_states) {
+			switch(reset_check_state) {
+				case reset_check_not_done:
+					reset_check_state++;
+					while(timer_system_ms < RESET_CONFIG_CHECK_START_TIME) {/*Wait*/}
+				break;
+				
+				case reset_checking:
+					if(reset_check()) { //check for reset count
+						reset_check_state++;
+					}
+				break;
+				
+				case reset_check_done:
+					if(timer_system_ms > RESET_CONFIG_CHECK_END_TIME) { //finish reset checking
+						reset_clear();
+						reset_check_state++;
+						STATUS_LED_ON;
+					}
+					
+				break;
+				
+				default:
+				break;
+			}
+		}
 		#if PWM_TERMINAL_CONTROL
 			manual_control();
 		#else
@@ -65,5 +109,5 @@ int main(void)
 				#endif //ESP_TERMINAL_CONTROL
 			#endif //LIGHTING_WIFI_CONTROL		
 		#endif  //PWM_TERMINAL_CONTROL
-    }
+	}
 }
