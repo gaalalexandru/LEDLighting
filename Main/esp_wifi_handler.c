@@ -48,7 +48,7 @@ char esp_station_IP[BUFFER_SIZE_IP_STRING];
 volatile uint32_t response_max_timestamp;
 extern volatile uint8_t pwm_width_buffer[PWM_CONFIG_CHMAX];
 extern volatile status_led_mode_t status_led_mode;
-
+volatile bool esp_power_up = 1;
 /************************************************************************/
 /*                      Wifi UART interface functions                   */
 /************************************************************************/
@@ -232,19 +232,22 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 {	
 	uint8_t u8response = ESP_RETURN_NDEF;
 	uint8_t u8work_int = 0;
-	static uint8_t u8first_start = 1;
+	
 	/* HW init procedure:
-	 * Only on first startup: set the direction of ESP 8266 Reset (RST) and Enable (CH_PD) pin
-	 * Only on first startup: set value of Enable (CH_PD) pin
-	 * On every restart set - clear - set Reset (RST) pin
+	 * 1) Only on first startup: set the direction of ESP 8266 Reset (RST) and Enable (CH_PD) pin
+	 * 2) Only on first startup: set value of Enable (CH_PD) pin
+	 * 3) On every restart set - clear - set Reset (RST) pin
+	 * Step 1) and 2) from Version3 will be done in main, to be able to set / clear GPIO pins before using ESP
 	 */
+	
+	//esp first power up will be done at main, leave this here only for feature reference
 	#if 0
-	if(u8first_start)
+	if(esp_power_up/*u8first_start*/)
 	{
 		RST_ESP_DIR;
 		CH_PD_DIR;
 		CH_PD_SET(1);
-		u8first_start = 0;
+		esp_power_up = 0;
 	}
 	#endif
 
@@ -256,7 +259,7 @@ uint8_t esp_init_hw(uint16_t u16init_delay)
 	//timer_delay_ms(100);
 	//startup animation has to be called after the ESP reset and enable pins are set
 	//otherwise ESP might not start up
-	animation_play_startup();
+	//animation_play_startup();
 	
 	timer_delay_ms(u16init_delay);  //Wait u8init_delay millisecond until ESP is started and finishes standard junk output :)
 	//syncronize ESP8266 with ATMEGA8 and set ESP to accept multiple connections

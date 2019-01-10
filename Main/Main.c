@@ -18,6 +18,7 @@
 #include "animation_handler.h"
 #include "eeprom_handler.h"
 #include "reset_handler.h"
+#include "animation_handler.h"
 
 #define INIT_STATUS_LED		(STATUS_LED_DDR |= (1 << STATUS_LED_PIN))
 #define TOGGLE_STATUS_LED	(STATUS_LED_PORT ^= (1 << STATUS_LED_PIN))
@@ -38,6 +39,7 @@ typedef enum {
 } reset_check_state_t;
 
 extern volatile uint32_t timer_system_ms;
+extern volatile bool esp_power_up;
 
 int main(void) {
 	//reset_check_state_t reset_check_state = reset_check_not_done;
@@ -75,14 +77,18 @@ int main(void) {
 	
 	INIT_STATUS_LED;
 	
-	RST_ESP_DIR;
-	CH_PD_DIR;
-	CH_PD_SET(1);
-	
-	RST_ESP_SET(1);
-	RST_ESP_SET(0);
-	RST_ESP_SET(1);
-	
+	if(esp_power_up) {
+		//do this only once
+		RST_ESP_DIR;
+		CH_PD_DIR;
+		CH_PD_SET(1);
+		
+		RST_ESP_SET(1);
+		RST_ESP_SET(0);
+		RST_ESP_SET(1);
+		esp_power_up = 0;
+	}
+
     while(1)
     {
 		while(reset_check_state < reset_check_nr_of_states) {
@@ -95,7 +101,7 @@ int main(void) {
 				case reset_checking:
 					reset_check_state++;
 					if(reset_check()) { //check for reset count
-						//STATUS_LED_ON;
+						STATUS_LED_ON;
 					}
 				break;
 				
@@ -103,7 +109,8 @@ int main(void) {
 					if(timer_system_ms > RESET_CONFIG_CHECK_END_TIME) { //finish reset checking
 						reset_clear();
 						reset_check_state++;
-						//STATUS_LED_OFF;
+						animation_play_startup();
+						STATUS_LED_OFF;
 					}
 					
 				break;
