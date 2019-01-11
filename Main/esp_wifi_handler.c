@@ -20,6 +20,7 @@
 #include "pwm_handler.h"
 #include "eeprom_handler.h"
 #include "errors.h"
+#include "reset_handler.h"
 
 // Pins have to be digital output
 // CH_PD: Chip enable. Keep it on high (3.3V) for normal operation
@@ -749,6 +750,8 @@ void esp_state_machine(void)
 						
 						case ESP_CMD_RESET_SYSTEM:
 							//Use Watchdog Timer and an infinite loop to reset the processor
+							esp_response(u8connection_ID, ac_client_IP, "SYS RST");
+							reset_controller();
 						break;
 						
 						

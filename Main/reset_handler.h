@@ -11,7 +11,7 @@
 
 uint8_t reset_check(void);
 void reset_clear(void);
-void reset_controller(void);
 void reset_eeprom(void);
+void reset_controller(void);
 
 #endif /* RESET_HANDLER_H_ */

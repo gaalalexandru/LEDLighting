@@ -24,6 +24,7 @@
 #else
 #error "Please specify one target controller"
 #endif  //controller selection
+
 /************************************************************************/
 /*					         CONTROL METHODE SELECTION					*/
 /************************************************************************/
@@ -35,11 +36,12 @@
 /*							FUNCTIONALITY ACTIVATION					*/
 /************************************************************************/
 #define LIGHTING_FUNCTION_ACTIVE	(1)	//enable timer0 and pwm channel outputs
-#define STATUS_LED_ACTIVE			(0/*1*/)	//enable timer1 and status LED init & toggle
+#define STATUS_LED_ACTIVE			(0)	//enable timer1 and status LED init & toggle
 #define DEBUGPIN_ACTIVE				(0)	//enable free pin to be used for debugging / measurements
 #define TERMINAL_DEBUG_ACTIVE		(0) //enable the print of various information to terminal
 #define STARTUP_ANIMATION_ACTIVE	(1)	//activate startup animation
 #define NONET_ANIMATION_ACTIVE		(1)	//activate no network connection animation
+
 /************************************************************************/
 /*							UART CONFIGURATIONS							*/
 /************************************************************************/
@@ -104,7 +106,7 @@
  * 8s => works ok on SOME of tested networks
  * 6s => works ok on SOME of tested networks
  */
-#define ESP_CONFIG_INIT_DELAY				(10000) //value is ms
+#define ESP_CONFIG_INIT_DELAY				(12000) //value is ms
 #define ESP_CONFIG_TCP_PORT					"1001"
 #define ESP_CONFIG_TCP_TIMEOUT				"120"  //seconds before tcp connection is closed
 #define ESP_CONFIG_FORCE_WIFI_SETUP			(0)
@@ -158,7 +160,7 @@
 #define EEL_FACTORY_NNN			(ANIMATION_SYM_NONET_BLINK)
 #define EEL_FACTORY_NNN_PWR		(PWM_CONFIG_DUTY_CYCLE_RESET_VALUE+1)
 #define EEL_FACTORY_ID			(EEPROM_INVALID_ID)
-#define EEL_FACTORY_AP_ON		(ESP_SYM_AP_NOT_ALWAYS_ON)
+#define EEL_FACTORY_AP_ON		(ESP_SYM_AP_ALWAYS_ON)
 #define EEL_FACTORY_AUTOCONNECT	(ESP_SYM_AUTOCONNECT_ON)
 
 #define EEPROM_INVALID_ID	(0)
@@ -169,12 +171,22 @@
 #define EEPROM_CONFIG_SIZE (0x200)  //512 byte
 
 /************************************************************************/
-/*							RESET CONFIGURATIONS						*/
+/*						RESET & WATCHDOG CONFIGURATIONS					*/
 /************************************************************************/
 #define RESET_CONFIG_CHECK_START_TIME	(100)
 #define RESET_CONFIG_CHECK_END_TIME (1500)
-
 #define RESET_SYM_DO_RESET	(0x52) //'R'
 #define RESET_SYM_NO_RESET	(0x4E) //'N'
+
+#define WATCHDOG_SYM_TIMEOUT_15MS   (0)
+#define WATCHDOG_SYM_TIMEOUT_30MS   (1)
+#define WATCHDOG_SYM_TIMEOUT_60MS   (2)
+#define WATCHDOG_SYM_TIMEOUT_120MS  (3)
+#define WATCHDOG_SYM_TIMEOUT_250MS  (4)
+#define WATCHDOG_SYM_TIMEOUT_500MS  (5)
+#define WATCHDOG_SYM_TIMEOUT_1S     (6)
+#define WATCHDOG_SYM_TIMEOUT_2S     (7)
+
+#define WATCHDOG_CONFIG_TIMEOUT		(WATCHDOG_SYM_TIMEOUT_2S)
 
 #endif /* CONFIGURATION_H_ */

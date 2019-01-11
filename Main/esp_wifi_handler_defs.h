@@ -50,7 +50,7 @@
 #define ESP_SYM_DATA_IS_PWM_DC		('#')
 #define ESP_SYM_DATA_IS_CMD			('#')
 #define ESP_SYM_DATA_IS_SSID		('@')
-#define ESP_SYM_DATA_IS_RESET		('!')
+//#define ESP_SYM_DATA_IS_RESET		('!')  //use X command instead
 #define ESP_SYM_AP_OFF				(0x30)
 #define ESP_SYM_AP_ON				(0x31)
 #define ESP_SYM_AUTOCONNECT_OFF		(0x30)

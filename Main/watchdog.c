@@ -4,14 +4,25 @@
  * Created: 1/10/2019 12:57:06 PM
  *  Author: alexandru.gaal
  */ 
-
+#include <avr/interrupt.h>
 #include <avr/wdt.h>
 
-#if 0
-_WDR();
 
-WDTCR |= (1<<WDCE) | (1<<WDE) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0) ;
 
-wdt_enable(WDTO_2S);
 
-#endif
+void watchdog_reset(void) {
+	wdt_reset();
+}
+
+void watchdog_enable(uint8_t u8wdg_timeot) {
+	WDTCR = (1<<WDCE);
+	WDTCR |= (1<<WDE);
+	WDTCR |= (u8wdg_timeot & (0x07));
+}
+
+void watchdog_disable(void) {
+	watchdog_reset();
+	WDTCR = (1<<WDCE) | (1<<WDE);
+	/* Turn off WDT */
+	WDTCR = 0x00;
+}

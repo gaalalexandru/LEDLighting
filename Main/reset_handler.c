@@ -5,10 +5,11 @@
  *  Author: alexandru.gaal
  */ 
 #include <stdint.h>
+#include "configuration.h"
 #include "reset_handler.h"
 #include "eeprom_handler.h"
-#include "uart_handler.h"
-#include "configuration.h"
+#include "watchdog.h"
+
 
 uint8_t reset_check(void) 
 {
@@ -21,28 +22,33 @@ uint8_t reset_check(void)
 		case 2: 
 			u8reset_count++;
 			eeprom_write_byte(EEL_ADDR_RESET_COUNT, u8reset_count);
-			u8reset_result = 0;
+			u8reset_result = RESET_SYM_NO_RESET;
 			
 			break;
 		case 3:
 			eeprom_write_byte(EEL_ADDR_RESET_COUNT, 0);
 			eeprom_write_byte(EEL_ADDR_STARTUP_ANIMATION, ANIMATION_SYM_SUA_SMOOTH);
-			u8reset_result = 1;
-			//reset_eeprom();
-			//reset_controller();
+			u8reset_result = RESET_SYM_DO_RESET;
+			
+		break;
+		
+		default:
+			u8reset_result = RESET_SYM_NO_RESET;
+		break;
 	}
 	return u8reset_result;
 }
 
 void reset_clear(void) {
 	eeprom_write_byte(EEL_ADDR_RESET_COUNT, 0);
-	//uart_send_string("CLR RST"); uart_newline();
-}
-
-void reset_controller(void) {
-	//uart_send_string("MCU RST"); uart_newline();
 }
 
 void reset_eeprom(void) {
-	//uart_send_string("EEP RST"); uart_newline();
+	eeprom_write_byte(EEL_ADDR_FIRST_START,0x00);  
+	eeprom_init();
+}
+
+void reset_controller(void) {
+	watchdog_enable(WATCHDOG_CONFIG_TIMEOUT);
+	while(1){/*infinite loop to trigger wdg timeout and cpu reset*/}	
 }

@@ -9,8 +9,8 @@
 #ifndef WATCHDOG_H_
 #define WATCHDOG_H_
 
-
-
-
+void watchdog_reset(void);
+void watchdog_enable(uint8_t u8wdg_timeot);
+void watchdog_disable(void);
 
 #endif /* WATCHDOG_H_ */
