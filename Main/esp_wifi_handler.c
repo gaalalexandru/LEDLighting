@@ -171,7 +171,7 @@ inline static void esp_aux_client_data(char *workString, uint8_t *connection_ID,
 static void esp_response(uint8_t ID, char *destination, char *message)
 {
 	//AleGaa The next block is deactivated because we will use persistent TCP connection
-	//Note: Rarely strange behavior was observed, sometimes when joining the router wifi network, the connection is closed too earlyy
+	//Note: Rarely strange behavior was observed, sometimes when joining the router wifi network, the connection is closed too early
 	#if 0  
 	uart_send_string("AT+CIPSTART="); uart_send_udec(ID); uart_send_string(",\"TCP\""); uart_send_char(0x2c); uart_send_char(0x22); 
 	uart_send_string(destination); uart_send_char(0x22); uart_send_char(0x2c); uart_send_string(ESP_CONFIG_TCP_PORT); uart_newline();

@@ -5,11 +5,11 @@
  *  Author: alexandru.gaal
  */ 
 #include <stdint.h>
+#include <avr/interrupt.h>
 #include "configuration.h"
 #include "reset_handler.h"
 #include "eeprom_handler.h"
 #include "watchdog.h"
-
 
 uint8_t reset_check(void) 
 {
@@ -49,6 +49,7 @@ void reset_eeprom(void) {
 }
 
 void reset_controller(void) {
+	cli();  //Disable interrupts
 	watchdog_enable(WATCHDOG_CONFIG_TIMEOUT);
 	while(1){/*infinite loop to trigger wdg timeout and cpu reset*/}	
 }

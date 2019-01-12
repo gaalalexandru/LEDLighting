@@ -4,11 +4,9 @@
  * Created: 1/10/2019 12:57:06 PM
  *  Author: alexandru.gaal
  */ 
-#include <avr/interrupt.h>
+#include <avr/io.h>
 #include <avr/wdt.h>
-
-
-
+#include "watchdog.h"
 
 void watchdog_reset(void) {
 	wdt_reset();

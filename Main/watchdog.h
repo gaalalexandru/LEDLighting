@@ -5,7 +5,6 @@
  *  Author: alexandru.gaal
  */ 
 
-
 #ifndef WATCHDOG_H_
 #define WATCHDOG_H_
 
