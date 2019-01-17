@@ -26,6 +26,7 @@ void eeprom_init(void)
 		eeprom_write_byte(EEL_ADDR_NO_CONN_POWER, EEL_FACTORY_NNN_PWR);
 		eeprom_write_byte(EEL_ADDR_DEVICE_ID, EEL_FACTORY_ID);
 		eeprom_write_byte(EEL_ADDR_AP_ALWAYS_ON, EEL_FACTORY_AP_ON);
+		eeprom_write_byte(EEL_ADDR_RESET_COUNT, 0);
 	}
 }
 

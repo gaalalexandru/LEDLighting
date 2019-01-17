@@ -33,7 +33,7 @@
 
 
 typedef enum {
-	reset_check_not_done = 0, //1000 ms off
+	reset_check_init = 0, //1000 ms off
 	reset_checking = 1, //100 ms on, 900 ms off
 	reset_check_done = 2,  //500 ms on, 500 ms off
 	reset_check_nr_of_states
@@ -43,8 +43,7 @@ extern volatile uint32_t timer_system_ms;
 extern volatile bool esp_power_up;
 
 int main(void) {
-	//reset_check_state_t reset_check_state = reset_check_not_done;
-	uint8_t reset_check_state = reset_check_not_done;
+	uint8_t reset_check_state = reset_check_init;
 
 	eeprom_init();
 	
@@ -94,7 +93,7 @@ int main(void) {
     {
 		while(reset_check_state < reset_check_nr_of_states) {
 			switch(reset_check_state) {
-				case reset_check_not_done:
+				case reset_check_init:
 					reset_check_state++;
 					while(timer_system_ms < RESET_CONFIG_CHECK_START_TIME) {/*Wait*/}
 				break;

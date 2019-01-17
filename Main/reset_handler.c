@@ -28,9 +28,7 @@ uint8_t reset_check(void)
 			break;
 		case 3:
 			eeprom_write_byte(EEL_ADDR_RESET_COUNT, 0);
-			eeprom_write_byte(EEL_ADDR_STARTUP_ANIMATION, ANIMATION_SYM_SUA_SMOOTH);
 			u8reset_result = RESET_SYM_DO_RESET;
-			
 		break;
 		
 		default:
