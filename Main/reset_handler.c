@@ -10,6 +10,7 @@
 #include "reset_handler.h"
 #include "eeprom_handler.h"
 #include "watchdog.h"
+#include <avr/wdt.h>
 
 uint8_t reset_check(void) 
 {
@@ -50,6 +51,8 @@ void reset_eeprom(void) {
 
 void reset_controller(void) {
 	cli();  //Disable interrupts
-	watchdog_enable(WATCHDOG_CONFIG_TIMEOUT);
+	//do not use own watchdog use library instead
+	//watchdog_enable(WATCHDOG_CONFIG_TIMEOUT);
+	//wdt_enable(WDTO_2S);
 	while(1){/*infinite loop to trigger wdg timeout and cpu reset*/}	
 }

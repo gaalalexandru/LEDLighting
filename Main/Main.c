@@ -7,6 +7,7 @@
 //#include <avr/delay.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/wdt.h>
 #include <util/atomic.h>
 #include "configuration.h"
 #include "uart_handler.h"
@@ -75,7 +76,7 @@ int main(void) {
 	
 	sei();  // enable global interrupts
 	
-	//INIT_STATUS_LED;
+	wdt_enable(WDTO_500MS);
 	
 	if(esp_power_up) {
 		//do this only once

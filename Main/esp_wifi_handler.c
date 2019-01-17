@@ -228,7 +228,10 @@ static inline uint8_t esp_ap_control(uint8_t u8ap_new_state)
 	}
 	return u8response;
 }
-
+void  esp_deinit_hw(void) {
+	CH_PD_SET(0);
+	RST_ESP_SET(0);
+}
 uint8_t esp_init_hw(uint16_t u16init_delay)
 {	
 	uint8_t u8response = ESP_RETURN_NDEF;
@@ -751,6 +754,8 @@ void esp_state_machine(void)
 						case ESP_CMD_RESET_SYSTEM:
 							//Use Watchdog Timer and an infinite loop to reset the processor
 							esp_response(u8connection_ID, ac_client_IP, "SYS RST");
+							esp_deinit_hw();
+							timer_delay_ms(100);
 							reset_controller();
 						break;
 						

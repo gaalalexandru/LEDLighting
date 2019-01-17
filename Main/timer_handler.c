@@ -11,23 +11,24 @@
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/wdt.h>
 #include <util/atomic.h>
-#include <stdbool.h>
+//#include <stdbool.h>
 #include "configuration.h"
 #include "timer_handler.h"
 #include "pwm_handler.h"
 #include "status_led.h"
 #include "esp_wifi_handler.h"
 #include "animation_handler.h"
-#include "reset_handler.h"
-#include "uart_handler.h"
+//#include "reset_handler.h"
+//#include "uart_handler.h"
+
 
 /************************************************************************/
 /*	                          Global Variables                          */
 /************************************************************************/
 volatile uint32_t timer_system_ms = 0;  //system startup counter in milliseconds
 extern volatile uint8_t esp_is_connected;
-volatile bool timer_reset_check_done = false;
 /************************************************************************/
 /*	                  Timer Initialization Functions                    */
 /************************************************************************/
@@ -160,6 +161,7 @@ ISR (TIMER1_COMPA_vect)
 		}
 	}
 	status_led_update();
+	wdt_reset();
 }
 
 /* Timer2 Interrupt function*/
