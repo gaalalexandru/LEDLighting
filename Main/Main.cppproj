@@ -170,6 +170,12 @@
     <Compile Include="pwm_handler.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="reset_handler.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="reset_handler.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="status_led.c">
       <SubType>compile</SubType>
     </Compile>
@@ -195,6 +201,12 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="esp_wifi_handler.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="watchdog.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="watchdog.h">
       <SubType>compile</SubType>
     </Compile>
   </ItemGroup>

@@ -24,6 +24,7 @@
 #else
 #error "Please specify one target controller"
 #endif  //controller selection
+
 /************************************************************************/
 /*					         CONTROL METHODE SELECTION					*/
 /************************************************************************/
@@ -40,6 +41,7 @@
 #define TERMINAL_DEBUG_ACTIVE		(0) //enable the print of various information to terminal
 #define STARTUP_ANIMATION_ACTIVE	(1)	//activate startup animation
 #define NONET_ANIMATION_ACTIVE		(1)	//activate no network connection animation
+
 /************************************************************************/
 /*							UART CONFIGURATIONS							*/
 /************************************************************************/
@@ -104,7 +106,7 @@
  * 8s => works ok on SOME of tested networks
  * 6s => works ok on SOME of tested networks
  */
-#define ESP_CONFIG_INIT_DELAY				(10000) //value is ms
+#define ESP_CONFIG_INIT_DELAY				(12000) //value is ms
 #define ESP_CONFIG_TCP_PORT					"1001"
 #define ESP_CONFIG_TCP_TIMEOUT				"120"  //seconds before tcp connection is closed
 #define ESP_CONFIG_FORCE_WIFI_SETUP			(0)
@@ -146,18 +148,19 @@
 #define EEL_ADDR_DEVICE_ID				(0x0005)  //0x41 -> 0x5A
 #define EEL_ADDR_AP_ALWAYS_ON			(0x0006)  //0x30 Not always on, 0x31 Always on
 #define EEL_ADDR_ESP_AUTOCONNECT		(0x0007)  //0x30 ESP Autoconnect Off, 0x31 Autoconnect On
+#define EEL_ADDR_RESET_COUNT			(0x0008)  //holds the reset count
 
 #define EEL_ADDR_WIFI_CREDENTIALS_LENGTH	(0x000A) //address to store length of wifi credentials string (ssid & password) 
 #define EEL_ADDR_WIFI_CREDENTIALS_START		(0x000B) //start address to store wifi credentials
 #define EEL_ADDR_WIFI_CREDENTIALS_END		((0x000B)+40)  //end address to store wifi credentials (start + 40 bytes)
 
 #define EEPROM_INITIALIZED		(0x49)  //'I' character, meaning EEPROM is initialized with default values.
-#define EEL_FACTORY_SUA			(ANIMATION_SYM_SUA_CIRCLE)
+#define EEL_FACTORY_SUA			(/*ANIMATION_SYM_SUA_SMOOTH*/ANIMATION_SYM_SUA_CIRCLE)
 #define EEL_FACTORY_POWER		(PWM_CONFIG_DUTY_MAX_VALUE)
-#define EEL_FACTORY_NNN			(ANIMATION_SYM_NONET_BLINK)
+#define EEL_FACTORY_NNN			(/*ANIMATION_SYM_NONET_NONE*/ANIMATION_SYM_NONET_BLINK)
 #define EEL_FACTORY_NNN_PWR		(PWM_CONFIG_DUTY_CYCLE_RESET_VALUE+1)
 #define EEL_FACTORY_ID			(EEPROM_INVALID_ID)
-#define EEL_FACTORY_AP_ON		(ESP_SYM_AP_NOT_ALWAYS_ON)
+#define EEL_FACTORY_AP_ON		(ESP_SYM_AP_ALWAYS_ON)
 #define EEL_FACTORY_AUTOCONNECT	(ESP_SYM_AUTOCONNECT_ON)
 
 #define EEPROM_INVALID_ID	(0)
@@ -166,4 +169,24 @@
 
 #define EEPROM_CONFIG_CLEAR_CREDENTIALS_STORAGE	(0)
 #define EEPROM_CONFIG_SIZE (0x200)  //512 byte
+
+/************************************************************************/
+/*						RESET & WATCHDOG CONFIGURATIONS					*/
+/************************************************************************/
+#define RESET_CONFIG_CHECK_START_TIME	(100)
+#define RESET_CONFIG_CHECK_END_TIME (1500)
+#define RESET_SYM_DO_RESET	(0x52) //'R'
+#define RESET_SYM_NO_RESET	(0x4E) //'N'
+
+#define WATCHDOG_SYM_TIMEOUT_15MS   (0)
+#define WATCHDOG_SYM_TIMEOUT_30MS   (1)
+#define WATCHDOG_SYM_TIMEOUT_60MS   (2)
+#define WATCHDOG_SYM_TIMEOUT_120MS  (3)
+#define WATCHDOG_SYM_TIMEOUT_250MS  (4)
+#define WATCHDOG_SYM_TIMEOUT_500MS  (5)
+#define WATCHDOG_SYM_TIMEOUT_1S     (6)
+#define WATCHDOG_SYM_TIMEOUT_2S     (7)
+
+#define WATCHDOG_CONFIG_TIMEOUT		(WATCHDOG_SYM_TIMEOUT_2S)
+
 #endif /* CONFIGURATION_H_ */

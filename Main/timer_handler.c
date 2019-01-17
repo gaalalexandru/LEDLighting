@@ -5,26 +5,32 @@
  *  Author: Gaal Alexandru
  */
 
-//Select timer0 (8 bit) to use for PWM generation
-//Select timer1 (16 bit) to handle status LED
-//Select timer2 (8 bit) to use for millisecond counter & delay functionality
+/*
+ * Timer usage:
+ * Timer0 (8 bit)  @ ???ms: Handle PWM signal generation
+ * Timer1 (16 bit) @ 100ms: Handle status led, no network connection animation, watchdog reset 
+ * Timer2 (8 bit)  @ 1ms: System millisecond counter & delay functionality
+ */
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/wdt.h>
 #include <util/atomic.h>
+//#include <stdbool.h>
 #include "configuration.h"
 #include "timer_handler.h"
 #include "pwm_handler.h"
 #include "status_led.h"
 #include "esp_wifi_handler.h"
 #include "animation_handler.h"
+//#include "reset_handler.h"
+//#include "uart_handler.h"
 
 /************************************************************************/
 /*	                          Global Variables                          */
 /************************************************************************/
 volatile uint32_t timer_system_ms = 0;  //system startup counter in milliseconds
 extern volatile uint8_t esp_is_connected;
-
 /************************************************************************/
 /*	                  Timer Initialization Functions                    */
 /************************************************************************/
@@ -157,6 +163,7 @@ ISR (TIMER1_COMPA_vect)
 		}
 	}
 	status_led_update();
+	wdt_reset();
 }
 
 /* Timer2 Interrupt function*/
@@ -168,3 +175,4 @@ ISR (TIMER2_COMP_vect)
 {
 	timer_system_ms++; //increment every 1 ms
 }
+
