@@ -18,6 +18,7 @@
 #define false	0
 
 extern volatile uint8_t pwm_width_buffer[PWM_CONFIG_CHMAX];
+static uint8_t animation_sua_finished = 0;
 
 void animation_play_startup(void)
 {
@@ -62,6 +63,7 @@ void animation_play_startup(void)
 			uart_send_string(ERROR_ANIMATION_UndefinedStartupAnimationCoded);
 		break;
 	}
+	animation_sua_finished = 1;
 }
 
 void animation_play_nonetwork(void)
@@ -77,37 +79,39 @@ void animation_play_nonetwork(void)
 		u8power = animation_load_no_netw_power();
 		u8first_start = 0;
 	}
-
-	switch (u8anim)
+	if(animation_sua_finished)
 	{
-		case ANIMATION_SYM_NONET_NONE:
+		switch (u8anim)
+		{
+			case ANIMATION_SYM_NONET_NONE:
 			//"0" = no startup animation
-		break;
-		
-		case ANIMATION_SYM_NONET_BLINK:
+			break;
+			
+			case ANIMATION_SYM_NONET_BLINK:
 			//"1" = slowly blink all leds (use a low PWM duty cycle when ON)
 			if (u8state) {
 				for(i = 0; i < PWM_CONFIG_CHMAX; ++i) {
 					pwm_width_buffer[i] = ANIMATION_CONFIG_NONET_BLINK_POWER;
 				}
-			} else {
+				} else {
 				for(i = 0; i < PWM_CONFIG_CHMAX; ++i) {
 					pwm_width_buffer[i] = PWM_CONFIG_DUTY_CYCLE_RESET_VALUE;
 				}
 			}
 			u8state ^= 1;
-		break;
-		
-		case ANIMATION_SYM_NONET_XDIM:
+			break;
+			
+			case ANIMATION_SYM_NONET_XDIM:
 			//"2" = dim all LED to a set value in EEPROM
 			for(i = 0; i < PWM_CONFIG_CHMAX; ++i) {
 				pwm_width_buffer[i] = u8power;
 			}
-		break;
-		
-		default:
+			break;
+			
+			default:
 			uart_send_string(ERROR_ANIMATION_UndefinedNoNetAnimationCoded);
-		break;
+			break;
+		}
 	}
 }
 

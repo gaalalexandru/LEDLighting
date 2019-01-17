@@ -102,7 +102,6 @@ int main(void) {
 				case reset_checking:
 					reset_check_state++;
 					if(reset_check() == RESET_SYM_DO_RESET) { //check for reset count
-						//STATUS_LED_ON;
 						reset_eeprom();
 					}
 				break;
@@ -112,9 +111,8 @@ int main(void) {
 						reset_clear();
 						reset_check_state++;
 						animation_play_startup();
-						//STATUS_LED_OFF;
+						
 					}
-					
 				break;
 				
 				default:
